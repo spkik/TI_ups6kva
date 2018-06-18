@@ -66,6 +66,7 @@
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.C2000_18.1.linkerID.LIBRARY.1904696563" name="Include library file or command file as input (--library, -l)" superClass="com.ti.ccstudio.buildDefinitions.C2000_18.1.linkerID.LIBRARY" useByScannerDiscovery="false" valueType="libs">
 									<listOptionValue builtIn="false" value="libc.a"/>
+									<listOptionValue builtIn="false" value="C:\ti\controlSUITE\libs\app_libs\SFRA\v1_10_00_00\IQ\lib\SFRA_IQ_Lib.lib"/>
 								</option>
 								<inputType id="com.ti.ccstudio.buildDefinitions.C2000_18.1.exeLinker.inputType__CMD_SRCS.357977449" name="Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.C2000_18.1.exeLinker.inputType__CMD_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.C2000_18.1.exeLinker.inputType__CMD2_SRCS.953059646" name="Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.C2000_18.1.exeLinker.inputType__CMD2_SRCS"/>
@@ -74,6 +75,9 @@
 							<tool id="com.ti.ccstudio.buildDefinitions.C2000_18.1.hex.197923702" name="C2000 Hex Utility" superClass="com.ti.ccstudio.buildDefinitions.C2000_18.1.hex"/>
 						</toolChain>
 					</folderInfo>
+					<sourceEntries>
+						<entry excluding="28035_RAM_lnk.cmd|cmd/F28035.cmd|CNF/PWM_PSFB_Cnf.c|CNF/PWM_PFC2PhiL_Cnf.c|CNF/PWM_DualUpDwnCnt_Cnf.c|CNF/PWM_ComplPairDB_Cnf.c|CNF/PWM_BuckBoost_Cnf.c|CNF/PWM_2ch_UpDwnCnt_Cnf.c|CNF/PWM_2ch_UpCnt_Cnf.c|CNF/PWM_1chHiResUpDwnCnt_Cnf.c|CNF/PWM_1chHiRes_Cnf.c|CNF/PWM_1ch_UpCntDB_Compl_Cnf.c|CNF/PWM_1ch_UpCntDB_Cnf.c|CNF/PWM_1ch_Cnf.c|CNF/PWM_PSFB_PCMC_Cnf.c|CNF/PWM_PSFB_VMC_SR_Cnf.c|CNF/DAC_Cnf.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>

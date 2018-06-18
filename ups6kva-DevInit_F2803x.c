@@ -1,18 +1,9 @@
 #include "DSP2803x_EPwm_defines.h"
 #include "DSP2803x_Device.h"
 #include "DPlib.h"
-//#include "ups6kva.h"
 
-// Functions that will be run from RAM need to be assigned to
-// a different section.  This section will then be mapped to a load and
-// run address using the linker cmd file.
-#pragma CODE_SECTION(InitFlash, "ramfuncs");
 #define Device_cal (void   (*)(void))0x3D7C80
 
-//Slope of temperature sensor (deg. C / ADC code, fixed pt Q15 format)
-#define getTempSlope() (*(int (*)(void))0x3D7E80)()
-//ADC code corresponding to temperature sensor output at 0-degreesC
-#define getTempOffset() (*(int (*)(void))0x3D7E83)()
 
 #define ADC_REF         (float64)(2.5)
 #define DAC_REF         (float64)(3.3)
@@ -30,28 +21,23 @@
 //#define CURR_LIM_0  (float64)(CURR_LIM - DELT_LIM)
 #define CURR_LIM_1  (float64)(CURR_LIM + DELT_LIM)
 
+
 void DeviceInit(void);
 void PieCntlInit(void);
 void PieVectTableInit(void);
 void WDogDisable(void);
 void PLLset(Uint16);
 void ISR_ILLEGAL(void);
-void ePWM_INIT(void);
+
 void ePWM_prefare(void);
 void init_ADC(void);
 void init_T0(void);
 void init_T1(void);
 void init_T2(void);
-interrupt void int_ADCINT1(void);
-interrupt void int_ADCINT2(void);
-//interrupt void int_ADCINT9(void);
 
 interrupt void int_EPWM6(void);
 interrupt void SECONDARY_ISR(void);
-//interrupt void int_TINT2(void);
 
-int sensorSample;
-extern unsigned int fan_period;
 //--------------------------------------------------------------------
 //  Configure Device for target Application Here
 //--------------------------------------------------------------------
@@ -79,12 +65,6 @@ void DeviceInit(void)
     // sources to minimize power consumption.
 	EALLOW;
 
-//	SysCtrlRegs.CLKCTL.bit.INTOSC1OFF = 0;	// turn off internal oscillator
-//  SysCtrlRegs.CLKCTL.bit.OSCCLKSRCSEL=1;  // In PLL (if 1 (Extosc or intosc2) else 0 (intOSC1))
-//	SysCtrlRegs.CLKCTL.bit.OSCCLKSRC2SEL=0; // EXTOSC (Extosc or intosc2)
-//	SysCtrlRegs.CLKCTL.bit.XCLKINOFF=1;     // Turn off XCLKIN.
-//	SysCtrlRegs.CLKCTL.bit.XTALOSCOFF=0;    // ON XTALOSC.
-//	SysCtrlRegs.CLKCTL.bit.INTOSC2OFF=1;    // Turn off INTOSC2.
 
     SysCtrlRegs.CLKCTL.bit.XTALOSCOFF = 0;     // Turn on XTALOSC
     SysCtrlRegs.CLKCTL.bit.XCLKINOFF = 1;      // Turn off XCLKIN
@@ -97,7 +77,7 @@ void DeviceInit(void)
     EDIS;
 
 
-// SYSTEM CLOCK speed based on internal oscillator = 10 MHz !!!!! 
+// SYSTEM CLOCK speed based on internal oscillator = 10 MHz !!!!! WE HAVE 12 MHz
 // 0xC =  60	MHz		(12)
 // 0xB =  55	MHz		(11)
 // 0xA =  50	MHz		(10)
@@ -110,12 +90,12 @@ void DeviceInit(void)
 // 0x3 =  15	MHz		(3)
 // 0x2 =  10	MHz		(2)
 
-	PLLset(0xA); // Choose from options above.
+	PLLset(0xA); // Choose from options above. =60MHz
 
 // Initialise interrupt controller and Vector Table
 // to defaults for now. Application ISR mapping done later.
-// PieCntlInit();		
-// PieVectTableInit();
+	PieCntlInit();
+    PieVectTableInit();
 
    EALLOW; // Below registers are "protected", allow access.
 
@@ -175,7 +155,7 @@ void DeviceInit(void)
 //--------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------
 //  GPIO-00 - PIN FUNCTION = --Spare--
-		GpioCtrlRegs.GPAMUX1.bit.GPIO0 = 0;		// 0=GPIO,  1=EPWM1A,  2=Resv,  3=Resv
+	GpioCtrlRegs.GPAMUX1.bit.GPIO0 = 0;		// 0=GPIO,  1=EPWM1A,  2=Resv,  3=Resv
 	GpioCtrlRegs.GPADIR.bit.GPIO0 = 1;		// 1=OUTput,  0=INput 
 //	GpioDataRegs.GPACLEAR.bit.GPIO0 = 1;	// uncomment if --> Set Low initially
 	GpioDataRegs.GPASET.bit.GPIO0 = 1;		// uncomment if --> Set High initially
@@ -434,7 +414,7 @@ void PieCntlInit(void)
 	PieCtrlRegs.PIEIER2.bit.INTx1 = 0;	// disable EPWM1_TZINT interrupt
 	PieCtrlRegs.PIEIER2.bit.INTx2 = 0;	// disable EPWM2_TZINT interrupt
 	
-				PieCtrlRegs.PIEIER3.bit.INTx1 = 1;	// enable EPWM1_INT interrupt
+	PieCtrlRegs.PIEIER3.bit.INTx1 = 1;	// enable EPWM1_INT interrupt
 	PieCtrlRegs.PIEIER3.bit.INTx2 = 0;	// disable EPWM1_INT	interrupt
 	PieCtrlRegs.PIEIER3.bit.INTx5 = 1;	// enable EPWM5_INT	interrupt for secondary slow ISR
 	PieCtrlRegs.PIEIER3.bit.INTx6 = 1;	// enable EPWM6_INT	interrupt
@@ -477,20 +457,10 @@ void PieVectTableInit(void)
 {
 		
 	EALLOW;	
-		//PieVectTable.ADCINT1 = &int_ADCINT1;
-		//PieVectTable.ADCINT1 = &DPL_ISR;
-		//PieVectTable.ADCINT2 = &int_ADCINT2;
-		//PieVectTable.ADCINT9 = &int_ADCINT9;
-		//PieVectTable.TINT0 = &int_TINT0;
-		
-		//PieVectTable.TINT1 = &int_TINT1;
-		//PieVectTable.TINT2 = &int_TINT2;
 
-		PieVectTable.EPWM6_INT = &int_EPWM6;
-
-		PieVectTable.EPWM5_INT = &SECONDARY_ISR;
-
-		PieVectTable.EPWM1_INT = &DPL_ISR;
+	PieVectTable.EPWM6_INT = &int_EPWM6;
+	PieVectTable.EPWM5_INT = &SECONDARY_ISR;
+	PieVectTable.EPWM1_INT = &DPL_ISR;
 
 		
 	EDIS;
@@ -510,310 +480,11 @@ interrupt void ISR_ILLEGAL(void) // Illegal operation TRAP.
 
 }
 
-// This function initializes the Flash Control registers.
-
-//                   CAUTION
-// This function MUST be executed out of RAM. Executing it
-// out of OTP/Flash will yield unpredictable results.
-
-void InitFlash(void)
-{
-   EALLOW;
-   // Enable Flash Pipeline mode to improve performance
-   // of code executed from Flash.
-   FlashRegs.FOPT.bit.ENPIPE = 1;
-
-   //                    CAUTION
-   // Minimum waitstates required for the flash operating
-   // at a given CPU rate must be characterized by TI.
-   // Refer to the datasheet for the latest information.
-
-   // Set the Paged Waitstate for the Flash.
-   FlashRegs.FBANKWAIT.bit.PAGEWAIT = 3;
-
-   // Set the Random Waitstate for the Flash.
-   FlashRegs.FBANKWAIT.bit.RANDWAIT = 3;
-
-   // Set the Waitstate for the OTP.
-   FlashRegs.FOTPWAIT.bit.OTPWAIT = 5;
-
-   //                         CAUTION
-   // ONLY THE DEFAULT VALUE FOR THESE 2 REGISTERS SHOULD BE USED.
-   FlashRegs.FSTDBYWAIT.bit.STDBYWAIT = 0x01FF;
-   FlashRegs.FACTIVEWAIT.bit.ACTIVEWAIT = 0x01FF;
-   EDIS;
-
-   // Force a pipeline flush to ensure that the write to
-   // the last register configured occurs before returning.
-
-   asm(" RPT #7 || NOP");
-}
-
-
-// This function will copy the specified memory contents from
-// one location to another. 
-// 
-// Uint16 *SourceAddr        Pointer to the first word to be moved
-//                            SourceAddr < SourceEndAddr
-// Uint16* SourceEndAddr     Pointer to the last word to be moved
-// Uint16* DestAddr          Pointer to the first destination word
-//
-// No checks are made for invalid memory locations or that the
-// end address is > then the first start address.
-
-void MemCopy(Uint16 *SourceAddr, Uint16* SourceEndAddr, Uint16* DestAddr)
-{
-    while(SourceAddr < SourceEndAddr)
-    { 
-       *DestAddr++ = *SourceAddr++;
-    }
-    return;
-}
-
-void ePWM_INIT (void)
-{
-
-/////////////////////////////////////////////TRIAC_CONTROL_PWM///////////////////////////////////////////////////////////////////
-	EPwm5Regs.TBPRD = 2340;							// Period =1*1170 TBCLK counts (25640 Hz @ 60MHz clock) for Up-down-count mode
-	//EPwm2Regs.TBPHS.half.TBPHS = 511; 			// Set Phase register to 511 discretes
-	EPwm5Regs.TBPHS.half.TBPHS = 0; 				// Set Phase register to 0 discretes
-	EPwm5Regs.TBCTL.bit.CTRMODE = 0; 				// Up-count mode
-	EPwm5Regs.TBCTL.bit.PHSEN = 0; 	    			// Phase loading disabled
-	EPwm5Regs.TBCTL.bit.PRDLD = 0;
-	//EPwm4Regs.TBCTL.bit.SYNCOSEL = 1;
-	EPwm5Regs.CMPCTL.bit.SHDWAMODE = 0; 			// Shadow mode. Operates as a double buffer. All writes via the CPU access the shadow register
-	EPwm5Regs.CMPCTL.bit.LOADAMODE = 0; 			// load on CTR=Zero. This bit has no effect in immediate mode (CMPCTL[SHDWAMODE] = 1)
-	EPwm5Regs.CMPA.half.CMPA = 600;     	    		// duty cycle of PWM5
-	//EPwm3Regs.CMPA.half.CMPA = 400;
-	EPwm5Regs.CMPB = 0;							    // момент запуска измерения первичного тока2
-	EPwm5Regs.TBCTR = 0x0000;						// clear counter 22.04.15
-
-	EPwm5Regs.AQCTLA.bit.ZRO = 2; 					// Clear: force EPWM3A output low
-	EPwm5Regs.AQCTLA.bit.CAU = 1; 					// Set: force EPWM2A output high
-	//EPwm4Regs.AQCTLA.bit.CAD = 2; 					// Clear: force EPWM2A output low
-
-////////////////////////////////Initializations ePWM 2/////////////////////////////////////////////////////////////////
-//EPwm2Regs.TBPRD = 2340;						// Period for Up-count mode
-EPwm3Regs.TBPRD = 1170;							// Period =2*1170 TBCLK counts (25640 Hz @ 60MHz clock) for Up-down-count mode
-//EPwm2Regs.TBPHS.half.TBPHS = 511; 			// Set Phase register to 511 discretes
-EPwm3Regs.TBPHS.half.TBPHS = 0; 				// Set Phase register to 0 discretes
-EPwm3Regs.TBCTL.bit.CTRMODE = 2; 				// Up-down-count mode
-EPwm3Regs.TBCTL.bit.PHSEN = 0; 	    			// Phase loading disabled
-EPwm3Regs.TBCTL.bit.PRDLD = 0;
-EPwm3Regs.TBCTL.bit.SYNCOSEL = 1;
-EPwm3Regs.CMPCTL.bit.SHDWAMODE = 0; 			// Shadow mode. Operates as a double buffer. All writes via the CPU access the shadow register
-EPwm3Regs.CMPCTL.bit.LOADAMODE = 0; 			// load on CTR=Zero. This bit has no effect in immediate mode (CMPCTL[SHDWAMODE] = 1)
-EPwm3Regs.CMPA.half.CMPA = 0;     	    		// duty cycle of PWM2
-//EPwm3Regs.CMPA.half.CMPA = 400;
-EPwm3Regs.CMPB = 0;							    // момент запуска измерения первичного тока2
-EPwm3Regs.TBCTR = 0x0000;						// clear counter 22.04.15
-
-//EPwm3Regs.AQCTLA.bit.ZRO = 2; 					// Clear: force EPWM3A output low
-//EPwm3Regs.AQCTLA.bit.CAU = 1; 					// Set: force EPWM2A output high
-//EPwm3Regs.AQCTLA.bit.CAD = 2; 					// Clear: force EPWM2A output low
-
-EPwm3Regs.AQCTLA.bit.ZRO = 1; 					// Clear: force EPWM3A output low
-EPwm3Regs.AQCTLA.bit.CAU = 2; 					// Set: force EPWM2A output high
-EPwm3Regs.AQCTLA.bit.CAD = 1; 					// Clear: force EPWM2A output low
-
-/////////////////////////////////Initializations ePWM 1////////////////////////////////////////////////////////////////////
-//EPwm1Regs.TBPRD = 2340;  						// Period for Up-count mode
-EPwm6Regs.TBPRD = 1170;  						// Period =2*1170 TBCLK counts (25640 Hz @ 60MHz clock) for Up-down-count mode
-EPwm6Regs.TBPHS.half.TBPHS = 0; 				// Set Phase register to zero
-EPwm6Regs.TBCTL.bit.CTRMODE = 2; 				// Up-down-count mode
-EPwm6Regs.TBCTL.bit.PHSEN = 0; 	    			// Phase loading disabled
-EPwm6Regs.TBCTL.bit.PRDLD = 0;
-EPwm6Regs.TBCTL.bit.SYNCOSEL = 1;
-EPwm6Regs.CMPCTL.bit.SHDWAMODE = 0;				// Shadow mode. Operates as a double buffer. All writes via the CPU access the shadow register
-EPwm6Regs.CMPCTL.bit.LOADAMODE = 0; 			// load on CTR=Zero. This bit has no effect in immediate mode (CMPCTL[SHDWAMODE] = 1)
-EPwm6Regs.CMPA.half.CMPA = 1170;     		    // выключаем ключ до запуска регулятора 23.04.15
-//EPwm6Regs.CMPA.half.CMPA = 400;
-EPwm6Regs.CMPB = 0;							    // момент запуска измерения первичного тока1
-EPwm6Regs.TBCTR = 0x0000;						// clear counter 22.04.15
-
-//EPwm6Regs.AQCTLA.bit.ZRO = 1; 					// Set: force EPWM6A output high
-//EPwm6Regs.AQCTLA.bit.CAU = 2; 					// Clear: force EPWM6A output low
-//EPwm6Regs.AQCTLA.bit.CAD = 1; 					// Set: force EPWM6A output high
-
-EPwm6Regs.AQCTLA.bit.ZRO = 2; 					// Set: force EPWM6A output high
-EPwm6Regs.AQCTLA.bit.CAU = 1; 					// Clear: force EPWM6A output low
-EPwm6Regs.AQCTLA.bit.CAD = 2; 					// Set: force EPWM6A output high
-/////////////////////////////////////dead_band generator/////////////////////////////////////////////////////////
-EPwm3Regs.DBCTL.bit.OUT_MODE = 3;				// Dead-band is fully enabled
-//EPwm3Regs.DBCTL.bit.POLSEL = 1;					// Both EPWMxA and EPWMxB are inverted
-EPwm3Regs.DBCTL.bit.POLSEL = 0;					// Both EPWMxA and EPWMxB are inverted
-EPwm3Regs.DBCTL.bit.IN_MODE = 0;				// EPWMxA In is the source for both delay
-EPwm3Regs.DBRED = 150;
-
-EPwm6Regs.DBCTL.bit.OUT_MODE = 3;				// Dead-band is fully enabled
-//EPwm6Regs.DBCTL.bit.POLSEL = 1;					// Both EPWMxA and EPWMxB are inverted
-EPwm6Regs.DBCTL.bit.POLSEL = 0;					// Both EPWMxA and EPWMxB are inverted
-EPwm6Regs.DBCTL.bit.IN_MODE = 0;				// EPWMxA In is the source for both delay
-EPwm6Regs.DBRED = 150;
-
-EPwm1Regs.DBCTL.bit.OUT_MODE = 3;				// Dead-band is fully enabled
-EPwm1Regs.DBCTL.bit.POLSEL = 1;					// Both EPWMxA and EPWMxB are inverted
-EPwm1Regs.DBCTL.bit.IN_MODE = 0;				// EPWMxA In is the source for both delay
-EPwm1Regs.DBRED = 120;
-
-EPwm2Regs.DBCTL.bit.OUT_MODE = 2;				// Dead-band is bypassed for ePWMB 05.05.15
-//EPwm2Regs.DBCTL.bit.OUT_MODE = 3;				// Dead-band is fully enabled
-EPwm2Regs.DBCTL.bit.POLSEL = 1;					// EPWMxA is inverted
-EPwm2Regs.DBCTL.bit.IN_MODE = 0;				// EPWMxA In is the source for both delay
-EPwm2Regs.DBRED = 120;
-
-EPwm2Regs.ETSEL.bit.INTEN = 0;					// Disable EPWM2_INT generation
-EPwm2Regs.ETSEL.bit.INTSEL = 7;					// Enable event time-base counter equal to zero
-EPwm2Regs.ETPS.bit.INTPRD = 1;					// Generate an interrupt on the first event INTCNT = 01 (first event)
-/////////////////////run ADC from PWM3////////////////////////////////////////////////////////////////////////
-/////////////////////////////////запуск измерения выходного напряжения__ SOC_0  SOC1////////////////////////////////////////
-
-EPwm3Regs.ETSEL.bit.SOCBEN = 1; 				// Enable EPWM3SOCB pulse
-//EPwm3Regs.ETSEL.bit.SOCBSEL = 6; 				// Enable event: time-base counter equal to CMPB when the timer is decrementing
-EPwm3Regs.ETSEL.bit.SOCBSEL = 1; 				// Enable event time-base counter equal to zero. (TBCTR = 0x0000)
-EPwm3Regs.ETPS.bit.SOCBCNT = 1; 				// 1 event has occurred
-EPwm3Regs.ETPS.bit.SOCBPRD = 1; 				// Generate the EPWM3SOCA pulse on the first event: ETPS[SOCACNT] = 0,1
-/////////////////////////////////запуск измерения среднего тока диагонали___ SOC2 ////////////////////////////////////////
-
-EPwm3Regs.ETSEL.bit.SOCAEN = 1; 				// Enable EPWM3SOCA pulse
-EPwm3Regs.ETSEL.bit.SOCASEL = 2; 				// Enable event time-base counter equal to period (TBCTR = TBPRD) измеряем среднее значение тока на вершине треугольника счетчика
-EPwm3Regs.ETPS.bit.SOCACNT = 1; 				// 1 event has occurred
-EPwm3Regs.ETPS.bit.SOCAPRD = 1; 				// Generate the EPWM3SOCA pulse on the first event: ETPS[SOCACNT] = 0,1
-
-//EPwm6Regs.ETSEL.bit.SOCBEN = 1; 				// Enable EPWM3SOCA pulse
-//EPwm6Regs.ETSEL.bit.SOCBSEL = 6; 				// Enable event: time-base counter equal to CMPB when the timer is incrementing
-//EPwm6Regs.ETPS.bit.SOCBCNT = 1; 				// 1 event has occurred
-//EPwm6Regs.ETPS.bit.SOCBPRD = 1; 				// Generate the EPWM3SOCA pulse on the first event: ETPS[SOCACNT] = 0,1
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-//EPwm1Regs.TBPRD = 2340;						// Period for Up-count mode
-EPwm1Regs.TBPRD = 1170;							// Period =2*1170 TBCLK counts (25640 Hz @ 60MHz clock) for Up-down-count mode
-//EPwm1Regs.TBPHS.half.TBPHS = 511; 			// Set Phase register to 511 discretes
-EPwm1Regs.TBPHS.half.TBPHS = 0; 				// Set Phase register to 0 discretes
-EPwm1Regs.TBCTL.bit.CTRMODE = 2; 				// Up-down-count mode
-EPwm1Regs.TBCTL.bit.PHSEN = 0; 	    			// Phase loading disabled
-EPwm1Regs.TBCTL.bit.PRDLD = 0;
-EPwm1Regs.TBCTL.bit.SYNCOSEL = 1;
-EPwm1Regs.CMPCTL.bit.SHDWAMODE = 1; 			// Immediate mode. Only the active compare register is used
-EPwm1Regs.CMPCTL.bit.LOADAMODE = 0; 			// load on CTR=Zero. This bit has no effect in immediate mode (CMPCTL[SHDWAMODE] = 1)
-EPwm1Regs.CMPA.half.CMPA = 0;     	    		// duty cycle of PWM2
-EPwm1Regs.CMPB = 0;							    // момент запуска измерения первичного тока2
-EPwm1Regs.TBCTR = 0x0000;						// clear counter 22.04.15
-
-//EPwm1Regs.AQCTLA.bit.ZRO = 1; 					// Clear: force EPWM3A output low
-//EPwm1Regs.AQCTLA.bit.CAU = 1; 					// Set: force EPWM2A output high
-//EPwm1Regs.AQCTLA.bit.CAD = 2; 					// Clear: force EPWM2A output low
-
-//EPwm1Regs.TBPRD = 2340;						// Period for Up-count mode
-EPwm2Regs.TBPRD = 1170;							// Period =2*1170 TBCLK counts (25640 Hz @ 60MHz clock) for Up-down-count mode
-//EPwm1Regs.TBPHS.half.TBPHS = 511; 			// Set Phase register to 511 discretes
-EPwm2Regs.TBPHS.half.TBPHS = 0; 				// Set Phase register to 0 discretes
-EPwm2Regs.TBCTL.bit.CTRMODE = 2; 				// Up-down-count mode
-EPwm2Regs.TBCTL.bit.PHSEN = 0; 	    			// Phase loading disabled
-EPwm2Regs.TBCTL.bit.PRDLD = 0;
-EPwm2Regs.TBCTL.bit.SYNCOSEL = 1;
-EPwm2Regs.CMPCTL.bit.SHDWAMODE = 1; 			// Immediate mode. Only the active compare register is used
-EPwm2Regs.CMPCTL.bit.LOADAMODE = 0; 			// load on CTR=Zero. This bit has no effect in immediate mode (CMPCTL[SHDWAMODE] = 1)
-EPwm2Regs.CMPA.half.CMPA = 0;     	    		// duty cycle of PWM2
-EPwm2Regs.CMPB = 0;								// синхроимпульс
-EPwm2Regs.CMPCTL.bit.SHDWBMODE = 1; 			// Immediate mode. Only the active compare register is used
-EPwm2Regs.TBCTR = 0x0000;						// clear counter 22.04.15
-
-EPwm2Regs.AQCTLB.bit.ZRO = 1; 					// Clear: force EPWM3A output low
-EPwm2Regs.AQCTLB.bit.CBU = 2; 					// Set: force EPWM2A output high
-EPwm2Regs.AQCTLB.bit.CBD = 1; 					// Clear: force EPWM2A output low
-
-
-/////////////////////trip zone settings for emulator stop////////////////////////////////////////////////////////////////////////////////////////
-EALLOW;
-EPwm3Regs.TZSEL.bit.OSHT6 = 1;      			// Enable TZ6 as a one-shot trip source for  ePWM2  module
-EPwm3Regs.TZCTL.bit.TZA = TZ_FORCE_LO;			// Force EPWM3A to a high state (с учетом инверсии за счет оптопары)
-
-EPwm6Regs.TZSEL.bit.OSHT6 = 1;      			// Enable TZ6 as a one-shot trip source for  ePWM2  module
-EPwm6Regs.TZCTL.bit.TZA = TZ_FORCE_LO;			// Force EPWM6A to a high state	(с учетом инверсии за счет оптопары)
-
-/////////////////////trip zone settings for cycle by cycle event//////////////////////////////////////////////
-//EPwm3Regs.TZSEL.bit.DCAEVT2 = TZ_ENABLE;    	// Enable DCAEVT2 as CBC trip source for ePWM2 module.
-//EPwm3Regs.DCTRIPSEL.bit.DCAHCOMPSEL = DC_COMP1OUT; 	    // COMP1OUT is input of Event Qualification A
-//EPwm3Regs.TZDCSEL.bit.DCAEVT2 = TZ_DCAH_HI;     // DCAEVT2 = DCAH high(will become active)
-//
-//EPwm3Regs.DCFCTL.bit.PULSESEL = DC_PULSESEL_ZERO;// Time-base counter equal to zero (TBCTR = 0x0000) - start blank timer
-//EPwm3Regs.DCFCTL.bit.BLANKINV = DC_BLANK_NOTINV;// Blanking window is not inverted
-//EPwm3Regs.DCFCTL.bit.BLANKE = DC_BLANK_ENABLE;	// Blanking window is enabled
-//EPwm3Regs.DCFCTL.bit.SRCSEL	= DC_SRC_DCAEVT2;	// Source Is DCAEVT2 Signal
-//EPwm3Regs.DCFOFFSET = 0;				  		// no offset
-//EPwm3Regs.DCFWINDOW = 30;				  		// Blanking window is  0.5 us
-//EPwm3Regs.DCACTL.bit.EVT2SRCSEL = DC_EVT_FLT;	// Source Is DCEVTFILT Signal
-//EPwm3Regs.DCACTL.bit.EVT2SRCSEL = DC_EVT2;		// Filter is not used
-//EPwm3Regs.DCACTL.bit.EVT2FRCSYNCSEL = DC_EVT_ASYNC; // Take async path
-//EPwm3Regs.TZEINT.bit.CBC = 1;			  		// enable interrupt for CBC 01.11.12
-//
-//EPwm6Regs.TZSEL.bit.DCAEVT2 = TZ_ENABLE;    	// Enable DCAEVT2 as CBC trip source for ePWM3 module.
-//DCTRIPSEL.bit.DCAHCOMPSEL = DC_COMP2OUT;		// COMP2OUT is input of Event Qualification A
-//EPwm6Regs.TZDCSEL.bit.DCAEVT2 = TZ_DCAH_HI;     // DCAEVT2 = DCAH high(will become active)
-//
-//EPwm6Regs.DCFCTL.bit.PULSESEL = DC_PULSESEL_ZERO;// Time-base counter equal to zero (TBCTR = 0x0000) - start blank timer
-//EPwm6Regs.DCFCTL.bit.BLANKINV = DC_BLANK_NOTINV; // Blanking window is not inverted
-//EPwm6Regs.DCFCTL.bit.BLANKE = DC_BLANK_ENABLE;   // Blanking window is enabled
-//EPwm6Regs.DCFCTL.bit.SRCSEL	= DC_SRC_DCAEVT2;	// Source Is DCAEVT2 Signal
-//EPwm6Regs.DCFOFFSET = 0;				    	// no offset
-//EPwm6Regs.DCFWINDOW = 30;						// Blanking window is  0.5 us
-//EPwm6Regs.DCACTL.bit.EVT2SRCSEL = DC_EVT_FLT;;	// Source Is DCEVTFILT Signal
-//EPwm6Regs.DCACTL.bit.EVT2SRCSEL = DC_EVT2;		// Filter is not used
-//EPwm6Regs.DCACTL.bit.EVT2FRCSYNCSEL = DC_EVT_ASYNC; // Take async path
-//EPwm6Regs.TZEINT.bit.CBC = 1;            		// enable interrupt for CBC 01.11.12
-
-//SysCtrlRegs.PCLKCR0.bit.TBCLKSYNC  = 1;         // Enable TBCLK
-
-//EPwm3Regs.AQCSFRC.bit.CSFA = 1;				// выключаем
-//EPwm6Regs.AQCSFRC.bit.CSFA = 1;							// ключи
-EPwm1Regs.AQCSFRC.bit.CSFA = 1;
-EPwm2Regs.AQCSFRC.bit.CSFA = 1;
-EDIS;
-/////////////////////////////////////////////////////////////////////////////////////////////////////
-//EALLOW;
-///*3*/EPwm1Regs.TBCTL.bit.HSPCLKDIV = 0;
-///*3*/EPwm1Regs.TBCTL.bit.CLKDIV = 0;
-//EPwm2Regs.TBCTL.bit.HSPCLKDIV = 0;
-//EPwm2Regs.TBCTL.bit.CLKDIV = 0;
-///*1*/EPwm3Regs.TBCTL.bit.HSPCLKDIV = 0;
-///*1*/EPwm3Regs.TBCTL.bit.CLKDIV = 0;
-//EPwm4Regs.TBCTL.bit.HSPCLKDIV = 0;
-//EPwm4Regs.TBCTL.bit.CLKDIV = 0;
-//
-//EPwm5Regs.TBCTL.bit.HSPCLKDIV = 0;
-//EPwm5Regs.TBCTL.bit.CLKDIV = 0;
-//
-//EPwm6Regs.TBCTL.bit.HSPCLKDIV = 0;
-//EPwm6Regs.TBCTL.bit.CLKDIV = 0;
-//SysCtrlRegs.PCLKCR0.bit.TBCLKSYNC  = 1;         // Enable TBCLK
-
-
-//GpioCtrlRegs.GPAMUX1.bit.GPIO0 = 1;		// 0=GPIO,  1=EPWM1A,  2=Resv,  3=Resv
-//GpioCtrlRegs.GPADIR.bit.GPIO0 = 1;		// 1=OUTput,  0=INput
-
-//GpioCtrlRegs.GPAMUX1.bit.GPIO2 = 1;		// 0=GPIO,  1=EPWM2A,  2=Resv,  3=Resv
-//GpioCtrlRegs.GPADIR.bit.GPIO2 = 1;		// 1=OUTput,  0=INput
-
-//GpioCtrlRegs.GPAMUX1.bit.GPIO4 = 1;		// 0=GPIO,  1=EPWM1A,  2=Resv,  3=Resv
-//GpioCtrlRegs.GPADIR.bit.GPIO4 = 1;		// 1=OUTput,  0=INput
-
-//GpioCtrlRegs.GPAMUX1.bit.GPIO10 = 1;	// 0=GPIO,  1=EPWM1A,  2=Resv,  3=Resv
-//GpioCtrlRegs.GPADIR.bit.GPIO10 = 1;		// 1=OUTput,  0=INput
-
-
-EDIS;															
-}	
-
-
 void ePWM_prefare()
 {
 	EALLOW;
-	/////////////////////trip zone settings for emulator stop/////////////////////////////////////////////////////////////////////////////////////
-
-	EPwm5Regs.TBPRD = SECONDARY_ISR_PERIOD;				// Period =5*1170 TBCLK counts (5120 Hz @ 60MHz clock) for Up-down-count mode
+	/////////////////////PWM5 for Secondary_ISR/////////////////////////////////////////////////////////////////////////////////////
+	EPwm5Regs.TBPRD = SECONDARY_ISR_PERIOD;		    // Period =5*1170 TBCLK counts (5120 Hz @ 60MHz clock) for Up-down-count mode
 	//EPwm2Regs.TBPHS.half.TBPHS = 511; 			// Set Phase register to 511 discretes
 	EPwm5Regs.TBPHS.half.TBPHS = 0; 				// Set Phase register to 0 discretes
 	EPwm5Regs.TBCTL.bit.CTRMODE = TB_COUNT_UPDOWN; 	// Up-count mode
@@ -833,13 +504,6 @@ void ePWM_prefare()
 	EPwm5Regs.ETSEL.bit.INTEN = 1;               	//
 	EPwm5Regs.ETSEL.bit.INTSEL = ET_CTR_PRD;   		// Select Int from counter = PRD
 	EPwm5Regs.ETPS.bit.INTPRD = ET_1ST;        		// Generate pulse on 1st event
-
-
-	//EPwm3Regs.TZSEL.bit.OSHT6 = 1;      			// Enable TZ6 as a one-shot trip source for  ePWM2  module
-	EPwm3Regs.TZCTL.bit.TZA = TZ_FORCE_LO;			// Force EPWM3A to a high state (с учетом инверсии за счет оптопары)
-
-	//EPwm6Regs.TZSEL.bit.OSHT6 = 1;      			// Enable TZ6 as a one-shot trip source for  ePWM2  module
-	EPwm6Regs.TZCTL.bit.TZA = TZ_FORCE_LO;			// Force EPWM6A to a high state	(с учетом инверсии за счет оптопары)
 
 	/////////////////////trip zone settings for cycle by cycle event//////////////////////////////////////////////
 	EPwm3Regs.TZSEL.bit.DCAEVT1 = TZ_ENABLE;      // Enable DCAEVT2 as CBC trip source for ePWM2 module.
@@ -873,20 +537,20 @@ void ePWM_prefare()
 	//EPwm6Regs.TZEINT.bit.CBC = 1;                 // enable interrupt for CBC 01.11.12
 
 
-	EPwm6Regs.ETSEL.bit.INTEN = 1;					// Enable EPWM2_INT generation
-	EPwm6Regs.ETSEL.bit.INTSEL = 1;					// Enable event time-base counter equal to zero
-	EPwm6Regs.ETPS.bit.INTPRD = 1;					// Generate an interrupt on the first event INTCNT = 01 (first event)
-
-	EPwm1Regs.ETSEL.bit.INTEN = ET_ENABLE;			// ENable EPWM1_INT generation
-	EPwm1Regs.ETSEL.bit.INTSEL = ET_CTRU_CMPB;		// Enable event: time-base counter equal to CMPB when the timer is incrementing
-	EPwm1Regs.ETPS.bit.INTPRD = ET_1ST;				// Generate an interrupt on the first event INTCNT = 01 (first event)
-
 	EPwm2Regs.TZSEL.bit.OSHT6 = 1;      			// Enable TZ6 as a one-shot trip source for  ePWM2  module
 	EPwm2Regs.TZCTL.bit.TZA = TZ_FORCE_LO;			// Force EPWM2A to a low state
 
 	EPwm1Regs.TZSEL.bit.OSHT6 = 1;      			// Enable TZ6 as a one-shot trip source for  ePWM2  module
 	EPwm1Regs.TZCTL.bit.TZA = TZ_FORCE_LO;			// Force EPWM1A to a low state
 
+	// UNTERRUPT
+    EPwm6Regs.ETSEL.bit.INTEN = ET_ENABLE;                  // Enable EPWM2_INT generation
+    EPwm6Regs.ETSEL.bit.INTSEL = ET_CTR_ZERO;                   // Enable event time-base counter equal to zero
+	EPwm6Regs.ETPS.bit.INTPRD = 1;                  // Generate an interrupt on the first event INTCNT = 01 (first event)
+
+	EPwm1Regs.ETSEL.bit.INTEN = ET_ENABLE;          // ENable EPWM1_INT generation
+	EPwm1Regs.ETSEL.bit.INTSEL = ET_CTRU_CMPB;      // Enable event: time-base counter equal to CMPB when the timer is incrementing
+	EPwm1Regs.ETPS.bit.INTPRD = ET_1ST;             // Generate an interrupt on the first event INTCNT = 01 (first event)
 
 	/*3*/EPwm1Regs.TBCTL.bit.HSPCLKDIV = 0;
 	/*3*/EPwm1Regs.TBCTL.bit.CLKDIV = 0;
@@ -1017,53 +681,6 @@ void init_T2(void)
 CpuTimer2Regs.TCR.bit.TIF = 1;                  // clear interrupt flag
 CpuTimer2Regs.TCR.bit.TIE = 0;                  // disable timer1 interrupt
 }
-
-//struct CPUTIMER_VARS CpuTimer2;
-//void init_T2(void)
-//{
-//
-//	EALLOW;
-//	CpuTimer2.RegsAddr = &CpuTimer2Regs;
-//	CpuTimer2Regs.PRD.all  = 0xFFFFFFFF;
-//	CpuTimer2Regs.TPR.all  = 0;
-//	CpuTimer2Regs.TPRH.all = 0;
-//	CpuTimer2Regs.TCR.bit.TSS = 1;
-//	CpuTimer2Regs.TCR.bit.TRB = 1;
-//	CpuTimer2.InterruptCount = 0;
-//
-//
-//
-//	CpuTimer2Regs.PRD.all = 60000;
-//
-//	// Set pre-scale counter to divide by 1 (SYSCLKOUT):
-//	CpuTimer2Regs.TPR.all  = 0;
-//	CpuTimer2Regs.TPRH.all  = 0;
-//
-//	// Initialize timer control register:
-//	CpuTimer2Regs.TCR.bit.TSS = 1;      // 1 = Stop timer, 0 = Start/Restart Timer
-//	CpuTimer2Regs.TCR.bit.TRB = 1;      // 1 = reload timer
-//	CpuTimer2Regs.TCR.bit.SOFT = 0;
-//	CpuTimer2Regs.TCR.bit.FREE = 0;     // Timer Free Run Disabled
-//	CpuTimer2Regs.TCR.bit.TIE = 0;      // 0 = Disable/ 1 = Enable Timer Interrupt
-//
-//	asm(" nop");
-//	asm(" nop");
-//	asm(" nop");
-//	asm(" nop");
-//	asm(" nop");
-//	asm(" nop");
-//	asm(" nop");
-//	asm(" nop");
-//	asm(" nop");
-//	asm(" nop");
-//
-//	//CpuTimer2Regs.TCR.all =  0x4001;
-//	//CpuTimer2Regs.TCR.all = 0x0010;
-//	CpuTimer2Regs.TCR.bit.TSS = 0;      // 1 = Stop timer, 0 = Start/Restart Timer
-//	EDIS;
-//}
-
-
 
 
 //===========================================================================
