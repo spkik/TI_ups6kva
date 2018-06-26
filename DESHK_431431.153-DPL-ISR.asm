@@ -32,6 +32,7 @@
 
 		; label to DP initialisation function
 		.def 	_DPL_Init
+		.def 	_DPL_ISR
 		.data
 		.def	 IntCount
 
@@ -316,12 +317,23 @@ COMPV:
 		.endif
 
 ;------------------------------------------------------------------------------------------------------------
-		.if(INCR_BUILD = 3)
+		;.if(INCR_BUILD = 3)				;для отладки АЦП
 
 		;////////////////////////////////////////////////////////////////DC_AC DPL_ISR SECTION///////////////////////////////////////////////////////////////////////////
 
 			ADCDRV_1ch 0				; V_OUT_INT load adc result
 			ADCDRV_1ch 1				; HALF_REF load adc result
+
+			ADCDRV_1ch 2
+			ADCDRV_1ch 		3			; Ipfc load adc result
+			ADCDRV_1ch 		4			; Vbus load adc result
+			ADCDRV_1ch 		5			; VL_fb load adc result
+			ADCDRV_1ch 		6			; VN_fb load adc result
+			EALLOW
+	        MOVW 	DP, #_GpioDataRegs.GPBDAT                 	; load Data Page to read GPIO registers
+			MOV 	@_GpioDataRegs.GPBTOGGLE, #1 ; Set GPIO7, Used for debug purposes
+			EDIS
+		.if(2=3)						; для отладки АЦП
 
 			MOVW	DP,#_ADCout_V
 			MOVL	ACC,@_ADCout_V		; ACC = Vout
@@ -404,7 +416,7 @@ COMPV:
 
 SKIP_VLOOP_CALC:
 
-		.endif
+		;.endif											;для отладки АЦП
 ;----------------------------------------------------
 			MOVW	DP,#_ab_run_flag
 			TBIT 	@_ab_run_flag, #0
@@ -566,7 +578,7 @@ SkipPWM2Force:
 
 ControlLoopEnd:
 
-
+			.endif
 			;.endif
 		;----------------------------------------------------------
 ;			.ref 	_Duty4A

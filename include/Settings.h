@@ -31,14 +31,18 @@
 							//5 - 
 #define VoltCurrLoopExecRatio   1
 
-#define EPWMn_DPL_ISR	1	// for EPWM triggered ISR set as 1
-#define ADC_DPL_ISR	    0	// for ADC INT 1 triggered ISR set as 1
+
+//#define EPWMn_DPL_ISR	1	// for EPWM triggered ISR set as 1
+//#define ADC_DPL_ISR	    0	// for ADC INT 1 triggered ISR set as 1
+#define EPWMn_DPL_ISR   0   // for EPWM triggered ISR set as 1                  Отладка АЦП
+#define ADC_DPL_ISR     1   // for ADC INT 1 triggered ISR set as 1             Отладка АЦП
 #define CLAn_DPL_ISR	0	// for CLA Task n Triggered ISR set as 1
 
 //----------------------------------------------------------------------------------
 // If EPWMn_DPL_ISR = 1, then choose which module
 //----------------------------------------------------------------------------------
-#define EPWM1			1	// EPWM1 provides ISR trigger
+//#define EPWM1			1	// EPWM1 provides ISR trigger                       Отладка АЦП
+#define EPWM1           0   // EPWM1 provides ISR trigger
 #define EPWM2			0 	// EPWM2 provides ISR trigger
 #define EPWM3			0	// EPWM3 provides ISR trigger
 #define EPWM4			0	// EPWM4 provides ISR trigger

@@ -14,9 +14,11 @@
 void DeviceInit(void);
 void PieCntlInit(void);
 void PieVectTableInit(void);
+//extern void DPL_ISR(void);
 
 extern void init_ADC();
 extern void ePWM_prefare();
+
 
 void init_T0(void);
 void init_T1(void);
@@ -26,6 +28,8 @@ void Net_connect();
 
 #pragma CODE_SECTION(int_EPWM6, "ramfuncs");
 #pragma CODE_SECTION(SECONDARY_ISR, "ramfuncs");
+//extern interrupt void my_ADC_ISR();
+
 
 //-------------------------------- DPLIB --------------------------------------------
 void ADC_SOC_CNF(int ChSel[], int Trigsel[], int ACQPS[], int IntChSel, int mode);
@@ -166,10 +170,10 @@ void main(void)
     TrigSel[1]= ADCTRIG_EPWM3_SOCA;
     TrigSel[2]= ADCTRIG_EPWM3_SOCA;
 
-    TrigSel[3]= ADCTRIG_EPWM1_SOCA;
-    TrigSel[4]= ADCTRIG_EPWM1_SOCA;
-    TrigSel[5]= ADCTRIG_EPWM1_SOCA;
-    TrigSel[6]= ADCTRIG_EPWM1_SOCA;
+    TrigSel[3]= ADCTRIG_EPWM3_SOCA;         //1 было
+    TrigSel[4]= ADCTRIG_EPWM3_SOCA;         //1
+    TrigSel[5]= ADCTRIG_EPWM3_SOCA;         //1
+    TrigSel[6]= ADCTRIG_EPWM3_SOCA;         //1
     // associate the appropriate peripheral trigger to the ADC channel
 
     // Configure the ADC with auto interrupt clear mode
@@ -215,13 +219,42 @@ void main(void)
 
     ePWM_prefare();
 
+    // Enable global Interrupts and higher priority real-time debug events:
+        EINT;   // Enable Global interrupt INTM
+        ERTM;   // Enable Global real-time interrupt DBGM
+        //END OF INTERRUPTS SETUP
+
+    for(;;){}
 }
+
+/*
+interrupt void my_ADC_ISR()
+{
+    AdcRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;           //Clear ADCINT1 flag reinitialize for next SOC
+    PieCtrlRegs.PIEACK.all |= PIEACK_GROUP1;        // Acknowledge interrupt to PIE
+
+    DPL_ISR();
+
+    EALLOW;
+    if(GpioDataRegs.GPBDAT.bit.GPIO32 == 1)
+    {
+        GpioDataRegs.GPBCLEAR.bit.GPIO32 = 1;
+    }
+    else
+    {
+        GpioDataRegs.GPBSET.bit.GPIO32 = 1;
+    }
+   // GpioDataRegs.GPBTOGGLE.bit.GPIO32 = 1;   // сперва выключаем тиристор (верхний)
+   EDIS;
+}*/
 
 interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание измерения Vout и zero_level, запуск за несколько тактов до момента окончания импульса
 {
     EALLOW;
     EPwm6Regs.ETCLR.bit.INT = 1;                        // clear interrupt flag of PWMINT6
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
+
+    GpioDataRegs.GPATOGGLE.bit.GPIO12 = 1;              // отладка
     EDIS;
 }
 
@@ -230,6 +263,8 @@ interrupt void SECONDARY_ISR(void)
     EALLOW;
     EPwm5Regs.ETCLR.bit.INT = 1;                        // clear interrupt flag of PWMINT6
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
+
+    //GpioDataRegs.GPATOGGLE.bit.GPIO12 = 1;              // отладка
     EDIS;
 }
 

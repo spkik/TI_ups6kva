@@ -37,6 +37,7 @@ void init_T2(void);
 
 interrupt void int_EPWM6(void);
 interrupt void SECONDARY_ISR(void);
+//interrupt void my_ADC_ISR();
 
 //--------------------------------------------------------------------
 //  Configure Device for target Application Here
@@ -404,8 +405,8 @@ void PieCntlInit(void)
     // Disable the PIE.
     PieCtrlRegs.PIECTRL.bit.ENPIE = 0;  
 	// Clear all PIEIER registers:
-    //PieCtrlRegs.PIEIER1.bit.INTx1 = 1;	// enable ADCINT1 interrupt
-    PieCtrlRegs.PIEIER1.bit.INTx1 = 0;	// disable ADCINT1 interrupt на период отладки PFC
+    PieCtrlRegs.PIEIER1.bit.INTx1 = 1;	// enable ADCINT1 interrupt                             отладка АЦП
+   // PieCtrlRegs.PIEIER1.bit.INTx1 = 0;	// disable ADCINT1 interrupt на период отладки PFC
 
     PieCtrlRegs.PIEIER1.bit.INTx2 = 0;	// disable ADCINT2 interrupt
 
@@ -414,7 +415,8 @@ void PieCntlInit(void)
 	PieCtrlRegs.PIEIER2.bit.INTx1 = 0;	// disable EPWM1_TZINT interrupt
 	PieCtrlRegs.PIEIER2.bit.INTx2 = 0;	// disable EPWM2_TZINT interrupt
 	
-	PieCtrlRegs.PIEIER3.bit.INTx1 = 1;	// enable EPWM1_INT interrupt
+	//PieCtrlRegs.PIEIER3.bit.INTx1 = 1;  // enable EPWM1_INT interrupt
+	PieCtrlRegs.PIEIER3.bit.INTx1 = 0;	// enable EPWM1_INT interrupt                           отладка АЦП
 	PieCtrlRegs.PIEIER3.bit.INTx2 = 0;	// disable EPWM1_INT	interrupt
 	PieCtrlRegs.PIEIER3.bit.INTx5 = 1;	// enable EPWM5_INT	interrupt for secondary slow ISR
 	PieCtrlRegs.PIEIER3.bit.INTx6 = 1;	// enable EPWM6_INT	interrupt
@@ -460,8 +462,8 @@ void PieVectTableInit(void)
 
 	PieVectTable.EPWM6_INT = &int_EPWM6;
 	PieVectTable.EPWM5_INT = &SECONDARY_ISR;
-	PieVectTable.EPWM1_INT = &DPL_ISR;
-
+	//PieVectTable.EPWM1_INT = &DPL_ISR;
+	PieVectTable.ADCINT1 = &DPL_ISR;
 		
 	EDIS;
 	
