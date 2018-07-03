@@ -14,7 +14,6 @@
 void DeviceInit(void);
 void PieCntlInit(void);
 void PieVectTableInit(void);
-//extern void DPL_ISR(void);
 
 extern void init_ADC();
 extern void ePWM_prefare();
@@ -28,8 +27,6 @@ void Net_connect();
 
 #pragma CODE_SECTION(int_EPWM6, "ramfuncs");
 #pragma CODE_SECTION(SECONDARY_ISR, "ramfuncs");
-//extern interrupt void my_ADC_ISR();
-
 
 //-------------------------------- DPLIB --------------------------------------------
 void ADC_SOC_CNF(int ChSel[], int Trigsel[], int ACQPS[], int IntChSel, int mode);
@@ -114,6 +111,39 @@ volatile int16 VTimer1;                            // софт таймер для отсчета уг
 volatile int16 VTimer2;                            // софт таймер для отсчета угла вкл нижнего тиристора
 volatile unsigned int VS_H_f = 0;                  // флаг импульса управления верхним тиристором
 volatile unsigned int VS_L_f = 0;                  // флаг импульса управления нижним тиристором
+
+// -------------------------------- FRAMEWORK --------------------------------------
+// State Machine function prototypes
+//----------------------------------------------------------------------------------
+// Alpha states
+void A0(void);  //state A0
+//void B0(void);    //state B0
+void C0(void);  //state C0
+
+// A branch states
+void A1(void);  //state A1
+void A2(void);  //state A2
+//void A3(void);    //state A3
+
+// B branch states
+//void B1(void);    //state B1
+//void B2(void);    //state B2
+//void B3(void);    //state B3
+
+// C branch states
+void C1(void);  //state C1
+void C2(void);  //state C1
+void C3(void);  //state C1
+
+
+// Variable declarations
+void (*Alpha_State_Ptr)(void);  // Base States pointer
+void (*A_Task_Ptr)(void);       // State pointer A branch
+void (*B_Task_Ptr)(void);       // State pointer B branch
+void (*C_Task_Ptr)(void);       // State pointer C branch
+
+void loop(void);
+#pragma CODE_SECTION(loop, "ramfuncs");
 
 volatile struct EPWM_REGS *ePWM[] =
                   { &EPwm1Regs,         //intentional: (ePWM[0] not used)
@@ -219,34 +249,242 @@ void main(void)
 
     ePWM_prefare();
 
-    // Enable global Interrupts and higher priority real-time debug events:
-        EINT;   // Enable Global interrupt INTM
-        ERTM;   // Enable Global real-time interrupt DBGM
-        //END OF INTERRUPTS SETUP
 
-    for(;;){}
+    CpuTimer0Regs.PRD.all =  mSec1;         // A tasks
+    CpuTimer1Regs.PRD.all =  fire_angle;    // задействую аппаратный таймер для измерения угла тиристора
+    CpuTimer2Regs.PRD.all =  mSec10;        // C tasks
+
+    // Tasks State-machine init
+    Alpha_State_Ptr = &A0;
+    A_Task_Ptr = &A1;
+    C_Task_Ptr = &C1;
+
+    // Enable global Interrupts and higher priority real-time debug events:
+    EINT;   // Enable Global interrupt INTM
+    ERTM;   // Enable Global real-time interrupt DBGM
+    //END OF INTERRUPTS SETUP
+
+    loop();
+
+}//end main
+
+void loop (void)
+{
+  for(;;)
+  {
+      (*Alpha_State_Ptr)(); // jump to an Alpha state (A0,B0,...)
+        //===========================================================
+  }  //end for
+}  //end loop
+
+void A0(void)
+{
+    // loop rate synchronizer for A-tasks
+    if(CpuTimer0Regs.TCR.bit.TIF == 1)
+    {
+        CpuTimer0Regs.TCR.bit.TIF = 1;  // clear flag
+
+        //-----------------------------------------------------------
+        (*A_Task_Ptr)();            // jump to an A Task (A1,A2,A3,...)
+        //-----------------------------------------------------------
+    }
+    Alpha_State_Ptr = &C0;      // Comment out to allow only A tasks
 }
 
-/*
-interrupt void my_ADC_ISR()
+void C0(void)
 {
-    AdcRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;           //Clear ADCINT1 flag reinitialize for next SOC
-    PieCtrlRegs.PIEACK.all |= PIEACK_GROUP1;        // Acknowledge interrupt to PIE
-
-    DPL_ISR();
-
-    EALLOW;
-    if(GpioDataRegs.GPBDAT.bit.GPIO32 == 1)
+    // loop rate synchronizer for C-tasks
+    if(CpuTimer2Regs.TCR.bit.TIF == 1)
     {
-        GpioDataRegs.GPBCLEAR.bit.GPIO32 = 1;
+        CpuTimer2Regs.TCR.bit.TIF = 1;              // clear flag
+
+        //-----------------------------------------------------------
+        (*C_Task_Ptr)();        // jump to a C Task (C1,C2,C3,...)
+        //-----------------------------------------------------------
+    }
+
+    Alpha_State_Ptr = &A0;  // Back to State A0
+}
+
+void A1(void)
+//--------------------------------------------------------
+{
+    if(CpuTimer1Regs.TCR.bit.TIF == 1)
+    {
+        CpuTimer1Regs.TCR.bit.TIF = 1;  // clear flag
+
+       // data_out();
+       // SendData();
+    }
+
+}
+
+void C1(void)  // soft start thyristors
+//------------------------------------------------------
+{
+    if (INCR_BUILD == 3)
+    {
+        if (VbusTargetSlewed == 0)                  // start
+        {
+            temp_zero = 0;
+            CNTL_2P2Z_Ref2 = &temp_zero;            // Slewed Voltage Command
+        }
+
+        if (start_flag == 0 && VbusAvg > VBUS_MIN)//Use this to start PFC in stand alone mode.
+            //Comment this line and uncomment the line above to start PFC from CCS watch window using start_flag
+        {
+            if(!fire_angle_min)
+            {
+                GpioDataRegs.GPBSET.bit.GPIO32 = 1;         //open the upper thyristor
+                GpioDataRegs.GPASET.bit.GPIO12 = 1;         //open the lower thyristor
+                fire_angle_min = 1;                         //firing angle is minimal - stop increasing the angle
+            }
+
+            VbusTargetSlewed = Vbus+ init_boost;        // Start slewing the boost command from a value slightly greater than the PFC output voltage
+            CNTL_2P2Z_Ref2 = &VbusTargetSlewed;         // Slewed Voltage Command
+
+            start_flag = 1;                             // This flag makes sure above code is executed only once when..
+                                                        // the VbusTarget command goes from zero to a value > 150V
+            CNTL_2P2Z_CoefStruct2.max  = _IQ24(0.0002);
+            CNTL_2P2Z_CoefStruct1.max  = _IQ24(0.001);
+
+        //-----------------
+        //the next time CpuTimer2 'counter' reaches Period value go to C2
+            C_Task_Ptr = &C2;
+        //-----------------
+        }
+        else        //
+        {
+            if(!fire_angle_min)
+            {
+                fire_angle_count = (fire_angle_count + 1) % 20;
+                if(fire_angle_count ==0 )     //урежение на порядок до 100 мс
+                {
+                    if(fire_angle > 110)
+                        fire_angle--;          //постепенно уменьшаем угол раз в 100 мс, пока не дошли до амплитудной точки
+                }
+            }
+            C_Task_Ptr = &C3;
+
+        }
+    }
+}
+//----------------------------------------
+void C2(void) //Slew Rate ("Soft Start")
+//----------------------------------------
+{
+
+//pfcSlewRate has to be a positive value
+//pfc_slew_temp = VbusTarget - VbusTargetSlewed;
+pfc_slew_temp = VBUS_TARGET - VbusTargetSlewed;
+
+if (pfc_slew_temp >= VbusSlewRate) // Positive Command. Slewed Vbus is less than VBUS_TARGET, so increase it. This is
+                                    //implement soft-start for Vbus. VbusSlewRate is initialized at the begining of this file.
+{
+    VbusTargetSlewed = VbusTargetSlewed + VbusSlewRate;
+    if(CNTL_2P2Z_CoefStruct2.max < _IQ24(0.9))
+    {
+         CNTL_2P2Z_CoefStruct2.max += _IQ24(0.001);
+    } else
+    {
+         CNTL_2P2Z_CoefStruct2.max = _IQ24(0.981);
+                   //PFC_status.bit.Mode=3;
+    }
+
+    if(CNTL_2P2Z_CoefStruct1.max < _IQ24(0.9))
+    {
+         CNTL_2P2Z_CoefStruct1.max += _IQ24(0.001);
     }
     else
     {
-        GpioDataRegs.GPBSET.bit.GPIO32 = 1;
+         CNTL_2P2Z_CoefStruct1.max = _IQ24(0.981);
+                   //PFC_status.bit.Mode=3;
     }
-   // GpioDataRegs.GPBTOGGLE.bit.GPIO32 = 1;   // сперва выключаем тиристор (верхний)
-   EDIS;
-}*/
+
+    C_Task_Ptr = &C2;
+
+}
+else
+{
+//Soft-start is complete. So set the flag for RUN mode and go to Task C3 for RUN time adjustment of Vbus
+//  if ((-1)*(pfc_slew_temp) >= VbusSlewRate) // Negative Command
+//  {
+//      VbusTargetSlewed = VbusTargetSlewed - VbusSlewRate;
+        VbusTargetSlewed = VBUS_TARGET;
+        VbusTarget = VBUS_TARGET;
+        //Gui_Vbus_set = VBUS_RATED_VOLTS*64;//Q15, Set Gui Vbus set point to initial value VBUS_RATED_VOLTS
+        //start_flag = 0;
+        run_flag = 1;
+        C_Task_Ptr = &C3;
+//  }
+}
+
+    //-----------------
+    //the next time CpuTimer2 'counter' reaches Period value go to C3
+    //C_Task_Ptr = &C1;
+    //-----------------
+}
+
+
+//-----------------------------------------
+void C3(void) //
+//-----------------------------------------
+{
+
+#ifndef INV
+
+    if (run_flag == 1) //If soft-start is over and PFC running normally
+    {
+
+        // pfcSlewRate has to be a positive value
+        pfc_slew_temp = VbusTarget - VbusTargetSlewed;
+
+        if (pfc_slew_temp >= VbusSlewRate) // Positive Command. Increase Vbus
+        {
+            VbusTargetSlewed = VbusTargetSlewed + VbusSlewRate;
+        }
+        else
+        {
+            if ((-1)*(pfc_slew_temp) >= VbusSlewRate) // Negative Command. Reduce Vbus
+            {
+                VbusTargetSlewed = VbusTargetSlewed - VbusSlewRate;
+                //      VbusTargetSlewed = VBUS_TARGET;
+                //      start_flag = 0;
+            }
+        }
+
+#endif
+
+        // если PFC вышел на режим и VBUS достигло 400 В, плавно поднимаем насыщение  V регулятора инвертора
+
+        if(Coef2P2Z_V.max < _IQ24(C2P2ZCoeff_V_MAX))
+            Coef2P2Z_V.max += _IQ24(0.0005);
+        else
+            Coef2P2Z_V.max = _IQ24(C2P2ZCoeff_V_MAX);
+
+        if(Coef2P2Z_V.min > _IQ24(C2P2ZCoeff_V_MIN))
+             Coef2P2Z_V.min -= _IQ24(0.0005);
+        else
+             Coef2P2Z_V.min = _IQ24(C2P2ZCoeff_V_MIN);
+
+
+#ifndef INV
+
+        if (VbusAvg < VBUS_UNDERVP_THRSHLD)  //Check for Vbus UV Condition
+        {
+            EALLOW;
+            EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+            EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+            EDIS;
+        }
+    }
+#endif
+    //-----------------
+    //the next time CpuTimer2 'counter' reaches Period value go to C1
+    C_Task_Ptr = &C1;
+    //-----------------
+
+}
 
 interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание измерения Vout и zero_level, запуск за несколько тактов до момента окончания импульса
 {
@@ -254,7 +492,7 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     EPwm6Regs.ETCLR.bit.INT = 1;                        // clear interrupt flag of PWMINT6
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
 
-    GpioDataRegs.GPATOGGLE.bit.GPIO12 = 1;              // отладка
+   // GpioDataRegs.GPATOGGLE.bit.GPIO12 = 1;              // отладка
     EDIS;
 }
 

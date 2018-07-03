@@ -317,23 +317,18 @@ COMPV:
 		.endif
 
 ;------------------------------------------------------------------------------------------------------------
-		;.if(INCR_BUILD = 3)				;для отладки АЦП
+		.if(INCR_BUILD = 3)				;для отладки АЦП
 
 		;////////////////////////////////////////////////////////////////DC_AC DPL_ISR SECTION///////////////////////////////////////////////////////////////////////////
 
 			ADCDRV_1ch 0				; V_OUT_INT load adc result
 			ADCDRV_1ch 1				; HALF_REF load adc result
 
-			ADCDRV_1ch 2
-			ADCDRV_1ch 		3			; Ipfc load adc result
-			ADCDRV_1ch 		4			; Vbus load adc result
-			ADCDRV_1ch 		5			; VL_fb load adc result
-			ADCDRV_1ch 		6			; VN_fb load adc result
-			EALLOW
-	        MOVW 	DP, #_GpioDataRegs.GPBDAT                 	; load Data Page to read GPIO registers
-			MOV 	@_GpioDataRegs.GPBTOGGLE, #1 ; Set GPIO7, Used for debug purposes
-			EDIS
-		.if(2=3)						; для отладки АЦП
+		;	EALLOW
+	    ;    MOVW 	DP, #_GpioDataRegs.GPBDAT                 	; load Data Page to read GPIO registers
+		;	MOV 	@_GpioDataRegs.GPBTOGGLE, #1 ; Set GPIO7, Used for debug purposes
+		;	EDIS
+		;.if(2=3)						; для отладки АЦП
 
 			MOVW	DP,#_ADCout_V
 			MOVL	ACC,@_ADCout_V		; ACC = Vout
@@ -416,7 +411,7 @@ COMPV:
 
 SKIP_VLOOP_CALC:
 
-		;.endif											;для отладки АЦП
+		.endif
 ;----------------------------------------------------
 			MOVW	DP,#_ab_run_flag
 			TBIT 	@_ab_run_flag, #0
@@ -445,7 +440,8 @@ PositiveCycle_INV:
 	        MOVW 	DP, #_AdcRegs.ADCSOC4CTL            ; load Data Page to read ADC results
 	        EALLOW
 			;MOV		@_AdcRegs.ADCSOC4CTL.bit.CHSEL, #10	; Switch ADC to mesure VbusH voltage
-			MOV		@_AdcRegs.ADCSOC4CTL,#0x3A86		; Switch ADC
+			;MOV		@_AdcRegs.ADCSOC4CTL,#0x3A86		; Switch ADC,ePWM2,socA,V_bus_H
+			MOV		@_AdcRegs.ADCSOC4CTL,#0x4A86		; Switch ADC,ePWM3,socA,V_bus_H
 			EDIS
 	        MOVW 	DP, #_EPwm2Regs.AQCTLA                     ; load Data Page to read ePWM registers
 			;MOV		@_EPwm2Regs.AQCTLA.bit.CAU, #1		; CLEAR ePWM1 on CompA-Up (enable switching)
@@ -516,7 +512,8 @@ NegativeCycle_INV:
 	        MOVW 	DP, #_AdcRegs.ADCSOC4CTL            ; load Data Page to read ADC results
 ;			MOV		@_AdcRegs.ADCSOC1CTL.bit.CHSEL, #4	; Switch ADC to mesure VbusH voltage
 			EALLOW
-			MOV		@_AdcRegs.ADCSOC4CTL, #0x2B06		; Switch ADC
+			;MOV		@_AdcRegs.ADCSOC4CTL, #0x2B06		; Switch ADC,ePWM1,socA,V_bus_L
+			MOV		@_AdcRegs.ADCSOC4CTL, #0x4B06		; Switch ADC,ePWM3,socA,V_bus_L
 	        EDIS
 	        MOVW 	DP, #_EPwm1Regs.AQCTLA                   ; load Data Page to read ePWM registers
 ;			MOV		@_EPwm1Regs.AQCTLA.bit.CAU, #1		; CLEAR ePWM2 on CompA-Up (enable switching)
@@ -578,7 +575,7 @@ SkipPWM2Force:
 
 ControlLoopEnd:
 
-			.endif
+
 			;.endif
 		;----------------------------------------------------------
 ;			.ref 	_Duty4A
