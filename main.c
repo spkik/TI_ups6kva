@@ -350,7 +350,8 @@ void C1(void)  // soft start thyristors
 
         //-----------------
         //the next time CpuTimer2 'counter' reaches Period value go to C2
-            C_Task_Ptr = &C2;
+        //    C_Task_Ptr = &C2;
+            C_Task_Ptr = &C3;                                               // ОТЛАДКА. после резки угла переходим в С3 где обратно переходим в С1
         //-----------------
         }
         else        //
@@ -491,9 +492,52 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     EALLOW;
     EPwm6Regs.ETCLR.bit.INT = 1;                        // clear interrupt flag of PWMINT6
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
-
-   // GpioDataRegs.GPATOGGLE.bit.GPIO12 = 1;              // отладка
     EDIS;
+
+    if(!fire_angle_min)                           // режем угол, пока не достигнем мин. значения
+    {
+
+        VTimer1++;                                // инкрементируем таймер отсчета угла вкл. тиристора по "+" полуволне
+        VTimer2++;                                // инкрементируем таймер отсчета угла вкл. тиристора по "-" полуволне
+
+        VTimer0[0]++;                             // инкрементируем счетчик импульса вкл. тиристора "+" волны
+        VTimer0[1]++;                             // инкрементируем счетчик импульса вкл. тиристора "-" волны
+
+        if((PosAngle)&&(VTimer1 > fire_angle))
+        {
+            PosAngle = 0;                         // сбрасываем признак отсчета угла
+            //GpioDataRegs.GPBSET.bit.GPIO33 = 1;   // включаем верхний тиристор
+            GpioDataRegs.GPBSET.bit.GPIO32 = 1;   // включаем верхний тиристор
+            VS_H_f  = 1;                          // устанавливаем признак импульса управления верхним тиристором
+            VTimer0[0] = 0;                       // обнуляем софт-таймер
+
+        }
+
+        if((NegAngle)&&(VTimer2 > fire_angle))
+        {
+            NegAngle = 0;                         // сбрасываем признак отсчета угла
+            //GpioDataRegs.GPBSET.bit.GPIO32 = 1;   // включаем нижний тиристор
+            GpioDataRegs.GPASET.bit.GPIO12 = 1;   // включаем нижний тиристор
+            VS_L_f  = 1;                          // устанавливаем признак импульса управления нижним тиристором
+            VTimer0[1] = 0;                       // обнуляем софт-таймер
+
+        }
+        //}
+
+        if(VS_H_f && VTimer0[0] > 25)
+        {
+            VS_H_f = 0;
+            //GpioDataRegs.GPBCLEAR.bit.GPIO33 = 1;      // снимаем импульс управления, так как тиристор уже включен
+            GpioDataRegs.GPBCLEAR.bit.GPIO32 = 1;      // снимаем импульс управления, так как тиристор уже включен
+        }
+
+        if(VS_L_f && VTimer0[1] > 25)
+        {
+            VS_L_f = 0;
+            //GpioDataRegs.GPBCLEAR.bit.GPIO32 = 1;      // снимаем импульс управления, так как тиристор уже включен
+            GpioDataRegs.GPACLEAR.bit.GPIO12 = 1;      // снимаем импульс управления, так как тиристор уже включен
+        }
+    }
 }
 
 interrupt void SECONDARY_ISR(void)
@@ -501,9 +545,29 @@ interrupt void SECONDARY_ISR(void)
     EALLOW;
     EPwm5Regs.ETCLR.bit.INT = 1;                        // clear interrupt flag of PWMINT6
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
-
-    //GpioDataRegs.GPATOGGLE.bit.GPIO12 = 1;              // отладка
     EDIS;
+
+    if (VbusAvg > VBUS_OVP_THRSHLD)//Check for Vbus OV Condition
+     {
+         OV_flag = 1;
+         EALLOW;
+         EPwm1Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
+         EPwm2Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
+         EDIS;
+
+         VbusTargetSlewed = 0;
+         VbusTarget = 0;
+         //Gui_Vbus_set = 0;
+     }
+
+
+
+     //Calculate RMS input voltage and input frequency
+
+     sine_mainsV.Vin = Vrect >> 9; // input in IQ15 format
+     SineAnalyzer_MACRO (sine_mainsV);
+     VrectRMS = (sine_mainsV.Vrms)<< 9;//    Convert sine_mainsV.Vrms from Q15 to Q24 and save as VrectRMS
+     Freq_Vin = sine_mainsV.SigFreq;// Q15
 }
 
 void Net_connect()
