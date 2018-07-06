@@ -156,6 +156,14 @@ volatile struct EPWM_REGS *ePWM[] =
                     &EPwm7Regs,
                   };
 
+// ---------------------------------- USER -----------------------------------------
+
+#pragma DATA_SECTION(V_OUT_INT_array,"ServiceData");
+#pragma DATA_SECTION(V_IN_array,"ServiceData");
+long    V_OUT_INT_array[512];                  //массив значений x(n)
+long    V_IN_array[512];                       //массив значений x(n)
+unsigned int x_i;
+
 void main(void)
 {
 //=================================================================================
@@ -322,7 +330,7 @@ void A1(void)
 void C1(void)  // soft start thyristors
 //------------------------------------------------------
 {
-    if (INCR_BUILD == 3)
+    if (VrectRMS == _IQ24(0.53))        // 180 Vnet_rms == 0.75 V_INampl == 0.53 VrectRMS
     {
         if (VbusTargetSlewed == 0)                  // start
         {
@@ -359,7 +367,7 @@ void C1(void)  // soft start thyristors
             if(!fire_angle_min)
             {
                 fire_angle_count = (fire_angle_count + 1) % 20;
-                if(fire_angle_count ==0 )     //урежение на порядок до 100 мс
+                if(fire_angle_count ==0 )     //урежение на порядок до 200 мс
                 {
                     if(fire_angle > 110)
                         fire_angle--;          //постепенно уменьшаем угол раз в 100 мс, пока не дошли до амплитудной точки
@@ -493,6 +501,15 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     EPwm6Regs.ETCLR.bit.INT = 1;                        // clear interrupt flag of PWMINT6
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
     EDIS;
+
+    *(V_OUT_INT_array+x_i) = Vrect;
+    *(V_IN_array+x_i) = VL_fb;
+//    *(V_Ref_array+x_i) = VbusAvg;
+//    *(V_Ref_array+x_i) = Vrect;
+//    *(V_Fdb_array+x_i) = Vbus;
+    x_i++;
+    x_i&=0x1FF;
+
 
     if(!fire_angle_min)                           // режем угол, пока не достигнем мин. значения
     {
