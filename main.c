@@ -186,7 +186,8 @@ void main(void)
 
     //sine analyzer initialization
     sine_mainsV.Vin=0;
-    sine_mainsV.SampleFreq=_IQ15(5120.0);
+   // sine_mainsV.SampleFreq=_IQ15(5120.0);
+    sine_mainsV.SampleFreq=_IQ15(5850.0);
     sine_mainsV.Threshold=_IQ15(0.1);//(0.02);
     // End sine analyzer initialization
 
@@ -330,7 +331,7 @@ void A1(void)
 void C1(void)  // soft start thyristors
 //------------------------------------------------------
 {
-    if (VrectRMS == _IQ24(0.53))        // 180 Vnet_rms == 0.75 V_INampl == 0.53 VrectRMS
+    if (VrectRMS >=_IQ24(0.2))        // 180 Vnet_rms == 0.75 V_INampl == 0.53 VrectRMS
     {
         if (VbusTargetSlewed == 0)                  // start
         {
@@ -502,7 +503,7 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
     EDIS;
 
-    *(V_OUT_INT_array+x_i) = Vrect;
+    *(V_OUT_INT_array+x_i) = Vbus;
     *(V_IN_array+x_i) = VL_fb;
 //    *(V_Ref_array+x_i) = VbusAvg;
 //    *(V_Ref_array+x_i) = Vrect;
@@ -511,7 +512,7 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     x_i&=0x1FF;
 
 
-    if(!fire_angle_min)                           // режем угол, пока не достигнем мин. значения
+    if(!fire_angle_min && (VrectRMS >=_IQ24(0.2)))                           // режем угол, пока не достигнем мин. значения
     {
 
         VTimer1++;                                // инкрементируем таймер отсчета угла вкл. тиристора по "+" полуволне
