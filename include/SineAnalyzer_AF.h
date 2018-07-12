@@ -9,6 +9,8 @@ typedef struct {  _iq  Vin;   				// Input: Sine Signal
 				  _iq  SigFreq;   			// Output: Signal Freq
 				  Uint16  ZCD;   			// Output: Zero Cross detected
 				  Uint16  PositiveCycle;    // Output: Positive cycle
+				  Uint16 antifreezecounter;
+				  Uint16 antifreezeperiod;
 				  } SineAnalyzer;	            
 
 typedef SineAnalyzer *SineAnalyzer_handle;
@@ -25,6 +27,8 @@ typedef SineAnalyzer *SineAnalyzer_handle;
                            _IQ(0.0),	\
                            0,			\
                            0,			\
+                           0,           \
+                           0,           \
                            }
                            
 //------------------------------------------------------------------------------
@@ -66,6 +70,7 @@ _iq15 inv_sqrt_nsamples;
     	Vacc_avg = 0;								\
     	Vacc_rms = 0;								\
     	nsamples=0;									\
+    	v.antifreezecounter = v.antifreezeperiod;   \
 	}												\
 	else											\
 	{												\

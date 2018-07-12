@@ -1,12 +1,15 @@
+#include <SineAnalyzer_AF.h>
 #include "Settings.h"
 #include "DSP2803x_Device.h"
 #include "DPlib.h"
 #include "IQmathLib.h"
 
-#include "SineAnalyzer.h"
 #include "sineTable_50Hz.h"
 #include "DSP2803x_EPwm_defines.h"
 #include "ups6kva.h"
+
+#define FLASH               // Uncomment for FLASH config
+
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // FUNCTION PROTOTYPES
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -15,9 +18,13 @@ void DeviceInit(void);
 void PieCntlInit(void);
 void PieVectTableInit(void);
 
+void InitFlash(void);
+void MemCopy();
 extern void init_ADC();
 extern void ePWM_prefare();
 
+// Used for running BackGround in flash, and ISR in RAM.
+extern Uint16 *RamfuncsLoadStart, *RamfuncsLoadEnd, *RamfuncsRunStart;
 
 void init_T0(void);
 void init_T1(void);
@@ -145,6 +152,8 @@ void (*C_Task_Ptr)(void);       // State pointer C branch
 void loop(void);
 #pragma CODE_SECTION(loop, "ramfuncs");
 
+
+
 volatile struct EPWM_REGS *ePWM[] =
                   { &EPwm1Regs,         //intentional: (ePWM[0] not used)
                     &EPwm1Regs,
@@ -157,13 +166,14 @@ volatile struct EPWM_REGS *ePWM[] =
                   };
 
 // ---------------------------------- USER -----------------------------------------
-
+#ifndef FLASH
 #pragma DATA_SECTION(V_OUT_INT_array,"ServiceData");
 #pragma DATA_SECTION(V_IN_array,"ServiceData");
 long    V_OUT_INT_array[512];                  //массив значений x(n)
 long    V_IN_array[512];                       //массив значений x(n)
 unsigned int x_i;
-
+#endif
+volatile unsigned int SoftStartThyristors=0;             // флаг плавного запуска тиристоров
 void main(void)
 {
 //=================================================================================
@@ -178,6 +188,18 @@ void main(void)
     // along with the Time Base Clock
     DeviceInit(); // Device Life support & GPIO.
 
+#ifdef FLASH
+    // Copy time critical code and Flash setup code to RAM.
+    // The  RamfuncsLoadStart, RamfuncsLoadEnd, and RamfuncsRunStart
+    // symbols are created by the linker. Refer to the linker files.
+    MemCopy(&RamfuncsLoadStart, &RamfuncsLoadEnd, &RamfuncsRunStart);
+    // Call Flash Initialization to setup flash waitstates.
+    // This function must reside in RAM.
+    InitFlash(); // Call the flash wrapper init function.
+    //SCIA_Init(15000000, 57600); // 15000000 is the LSPCLK or the Clock used for the SCI Module
+                                // 57600 is the Baudrate desired of the SCI module
+#endif //(FLASH)
+
     init_T0();
     init_T1();
     init_T2();
@@ -187,8 +209,9 @@ void main(void)
     //sine analyzer initialization
     sine_mainsV.Vin=0;
    // sine_mainsV.SampleFreq=_IQ15(5120.0);
-    sine_mainsV.SampleFreq=_IQ15(5850.0);
-    sine_mainsV.Threshold=_IQ15(0.1);//(0.02);
+    sine_mainsV.SampleFreq=_IQ15(5128.0);
+    sine_mainsV.Threshold=_IQ15(0.1);  //(0.02);
+    sine_mainsV.antifreezeperiod = 512; // 10Hz
     // End sine analyzer initialization
 
     // Configure ADC to be triggered from EPWM1 Period event
@@ -331,13 +354,15 @@ void A1(void)
 void C1(void)  // soft start thyristors
 //------------------------------------------------------
 {
-    if (VrectRMS >=_IQ24(0.2))        // 180 Vnet_rms == 0.75 V_INampl == 0.53 VrectRMS
-    {
-        if (VbusTargetSlewed == 0)                  // start
+    if (VbusTargetSlewed == 0)                  // start
         {
-            temp_zero = 0;
-            CNTL_2P2Z_Ref2 = &temp_zero;            // Slewed Voltage Command
+         temp_zero = _IQ24(0);
+         CNTL_2P2Z_Ref2 = &temp_zero;            // Slewed Voltage Command
         }
+
+    if (VrectRMS >=_IQ24(0.2))        // 180 Vnet_rms
+    {
+        SoftStartThyristors = 1;
 
         if (start_flag == 0 && VbusAvg > VBUS_MIN)//Use this to start PFC in stand alone mode.
             //Comment this line and uncomment the line above to start PFC from CCS watch window using start_flag
@@ -349,7 +374,7 @@ void C1(void)  // soft start thyristors
                 fire_angle_min = 1;                         //firing angle is minimal - stop increasing the angle
             }
 
-            VbusTargetSlewed = Vbus+ init_boost;        // Start slewing the boost command from a value slightly greater than the PFC output voltage
+            VbusTargetSlewed = Vbus+init_boost;        // Start slewing the boost command from a value slightly greater than the PFC output voltage
             CNTL_2P2Z_Ref2 = &VbusTargetSlewed;         // Slewed Voltage Command
 
             start_flag = 1;                             // This flag makes sure above code is executed only once when..
@@ -367,7 +392,7 @@ void C1(void)  // soft start thyristors
         {
             if(!fire_angle_min)
             {
-                fire_angle_count = (fire_angle_count + 1) % 20;
+                fire_angle_count = (fire_angle_count + 1) % 10;
                 if(fire_angle_count ==0 )     //урежение на порядок до 200 мс
                 {
                     if(fire_angle > 110)
@@ -377,6 +402,26 @@ void C1(void)  // soft start thyristors
             C_Task_Ptr = &C3;
 
         }
+    }//(VrectRMS >=_IQ24(0.2))
+    else
+    {
+        SoftStartThyristors = 0;
+        GpioDataRegs.GPBCLEAR.bit.GPIO32 = 1;         //close the upper thyristor
+        GpioDataRegs.GPACLEAR.bit.GPIO12 = 1;         //close the lower thyristor
+
+        fire_angle = 270;                            // start level
+        fire_angle_min = 0;
+        start_flag = 0;
+
+        VTimer1++;                                // обнуляем таймер отсчета угла вкл. тиристора по "+" полуволне
+        VTimer2++;                                // обнуляем таймер отсчета угла вкл. тиристора по "-" полуволне
+
+        VTimer0[0]++;                             // обнуляем счетчик импульса вкл. тиристора "+" волны
+        VTimer0[1]++;                             // обнуляем счетчик импульса вкл. тиристора "-" волны
+        VS_H_f = 0;
+        VS_L_f = 0;
+
+        C_Task_Ptr = &C3;
     }
 }
 //----------------------------------------
@@ -503,16 +548,17 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
     EDIS;
 
-    *(V_OUT_INT_array+x_i) = Vbus;
+#ifndef FLASH
+    *(V_OUT_INT_array+x_i) = Ipfc;
     *(V_IN_array+x_i) = VL_fb;
 //    *(V_Ref_array+x_i) = VbusAvg;
 //    *(V_Ref_array+x_i) = Vrect;
 //    *(V_Fdb_array+x_i) = Vbus;
     x_i++;
     x_i&=0x1FF;
+#endif
 
-
-    if(!fire_angle_min && (VrectRMS >=_IQ24(0.2)))                           // режем угол, пока не достигнем мин. значения
+    if(!fire_angle_min && SoftStartThyristors)                           // режем угол, пока не достигнем мин. значения
     {
 
         VTimer1++;                                // инкрементируем таймер отсчета угла вкл. тиристора по "+" полуволне
@@ -582,10 +628,21 @@ interrupt void SECONDARY_ISR(void)
 
      //Calculate RMS input voltage and input frequency
 
-     sine_mainsV.Vin = Vrect >> 9; // input in IQ15 format
+     sine_mainsV.Vin = Vrect >> 9;          // input in IQ15 format
      SineAnalyzer_MACRO (sine_mainsV);
-     VrectRMS = (sine_mainsV.Vrms)<< 9;//    Convert sine_mainsV.Vrms from Q15 to Q24 and save as VrectRMS
-     Freq_Vin = sine_mainsV.SigFreq;// Q15
+     VrectRMS = (sine_mainsV.Vrms)<< 9;     // Convert sine_mainsV.Vrms from Q15 to Q24 and save as VrectRMS
+     Freq_Vin = sine_mainsV.SigFreq;        // Q15
+     if(sine_mainsV.antifreezecounter != 0)
+     {
+         sine_mainsV.antifreezecounter--;
+     }
+     else
+     {
+         VrectRMS = 0;
+         Freq_Vin = 0;
+     }
+
+
 }
 
 void Net_connect()
