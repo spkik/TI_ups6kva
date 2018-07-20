@@ -1,4 +1,3 @@
-#include <SineAnalyzer_AF.h>
 #include "Settings.h"
 #include "DSP2803x_Device.h"
 #include "DPlib.h"
@@ -7,7 +6,7 @@
 #include "sineTable_50Hz.h"
 #include "DSP2803x_EPwm_defines.h"
 #include "ups6kva.h"
-
+#include "SineAnalyzer_AF.h"
 #define FLASH               // Uncomment for FLASH config
 
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -68,9 +67,9 @@ volatile long VL_fb;
 volatile long VN_fb;
 
 volatile long DutyA;
-volatile long Km, Vrect, VinvSqr, VrectAvg, VbusHAvg, VbusAvg, VrectRMS, Freq_Vin;
+volatile long Vrect, VinvSqr, VrectAvg, VbusHAvg, VbusAvg, VrectRMS, Freq_Vin;
 volatile long VbusVcmd,PFCIcmd;             //PFCIcmd_avg;
-volatile long Duty4A;
+
 volatile long VbusTarget, error_v=0;        // Set point for the PFC voltage loop
 
 volatile long   VbusTargetSlewed;           // Slewed set point for the voltage loop
@@ -81,13 +80,8 @@ long    temp_zero;
 
 //int   init_boost = 10240;                 // Small boost command when PFC is enabled the first time
 int     init_boost = 4000;                  // Small boost command when PFC is enabled the first time
-int16   start_flag, run_flag, OV_flag=0, flag_NL_Vloop=1;//Set NL Vloop flag for NL Vloop Control
+int16   start_flag, run_flag, OV_flag=0;
 
-long Pgain_I,Igain_I,Dgain_I,Dmax_I;
-long Pgain_V,Igain_V,Dgain_V,Dmax_V;
-
-//These two variables must be initialized to 0
-int16   coeff_change = 0, vloop_coeff_change = 0, disable_auto_cloop_coeff_change=0, KDCM=0;
 SineAnalyzer sine_mainsV = SineAnalyzer_DEFAULTS;
 // Used for ADC Configuration
 int ChSel[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -101,8 +95,8 @@ struct  CNTL_2P2Z_CoefStruct CNTL_2P2Z_CoefStruct2;    //объявляем экземпляр нов
 
 volatile signed int sampleCount;                // счетчик табличной нарезки
 
-volatile unsigned int PosAngle = 0;
-volatile unsigned int NegAngle = 0;
+volatile unsigned int PosAngle = 0;             //признак отсчета угла по "+" волне
+volatile unsigned int NegAngle = 0;             //признак отсчета угла по "-" волне
 volatile unsigned int SyncPosFlag =0;
 volatile unsigned int SyncNegFlag =0;
 //volatile int fire_angle = 240;                    // заносим значение выраженное в ШИМ-периодах (чуть < 10 мс)
@@ -118,6 +112,8 @@ volatile int16 VTimer1;                            // софт таймер для отсчета уг
 volatile int16 VTimer2;                            // софт таймер для отсчета угла вкл нижнего тиристора
 volatile unsigned int VS_H_f = 0;                  // флаг импульса управления верхним тиристором
 volatile unsigned int VS_L_f = 0;                  // флаг импульса управления нижним тиристором
+
+
 
 // -------------------------------- FRAMEWORK --------------------------------------
 // State Machine function prototypes
@@ -174,18 +170,15 @@ long    V_IN_array[512];                       //массив значений x(n)
 unsigned int x_i;
 #endif
 volatile unsigned int SoftStartThyristors=0;             // флаг плавного запуска тиристоров
+
+
+
 void main(void)
 {
 //=================================================================================
 //  INITIALISATION - General
 //=================================================================================
 
-    // The DeviceInit() configures the clocks and pin mux registers
-    // The function is declared in BridgelessPFC-DevInit_F2803/2x.c,
-    // Please ensure/edit that all the desired components pin muxes
-    // are configured properly that clocks for the peripherals used
-    // are enabled, for example the individual PWM clock must be enabled
-    // along with the Time Base Clock
     DeviceInit(); // Device Life support & GPIO.
 
 #ifdef FLASH
@@ -296,7 +289,10 @@ void main(void)
     ERTM;   // Enable Global real-time interrupt DBGM
     //END OF INTERRUPTS SETUP
 
+
     loop();
+
+
 
 }//end main
 
@@ -359,8 +355,8 @@ void C1(void)  // soft start thyristors
          temp_zero = _IQ24(0);
          CNTL_2P2Z_Ref2 = &temp_zero;            // Slewed Voltage Command
         }
-
-    if (VrectRMS >=_IQ24(0.2))        // 180 Vnet_rms
+   static long a= V_RECT_RMS_THRSHLD;
+    if (VrectRMS >= a)       // 180 Vnet_rms
     {
         SoftStartThyristors = 1;
 
@@ -384,8 +380,10 @@ void C1(void)  // soft start thyristors
 
         //-----------------
         //the next time CpuTimer2 'counter' reaches Period value go to C2
-        //    C_Task_Ptr = &C2;
-            C_Task_Ptr = &C3;                                               // ОТЛАДКА. после резки угла переходим в С3 где обратно переходим в С1
+            C_Task_Ptr = &C2;
+#ifdef RECT_debug
+            C_Task_Ptr = &C3;
+#endif
         //-----------------
         }
         else        //
@@ -431,7 +429,7 @@ void C2(void) //Slew Rate ("Soft Start")
 
 //pfcSlewRate has to be a positive value
 //pfc_slew_temp = VbusTarget - VbusTargetSlewed;
-pfc_slew_temp = VBUS_TARGET - VbusTargetSlewed;
+pfc_slew_temp = VBUS_TARGET - VbusTargetSlewed;     //0.897(IQ24)- 0.682(IQ24)= + error
 
 if (pfc_slew_temp >= VbusSlewRate) // Positive Command. Slewed Vbus is less than VBUS_TARGET, so increase it. This is
                                     //implement soft-start for Vbus. VbusSlewRate is initialized at the begining of this file.
@@ -469,7 +467,9 @@ else
         VbusTarget = VBUS_TARGET;
         //Gui_Vbus_set = VBUS_RATED_VOLTS*64;//Q15, Set Gui Vbus set point to initial value VBUS_RATED_VOLTS
         //start_flag = 0;
-        run_flag = 1;
+#ifndef PFC_debug
+         run_flag = 1;
+#endif
         C_Task_Ptr = &C3;
 //  }
 }
@@ -549,7 +549,7 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     EDIS;
 
 #ifndef FLASH
-    *(V_OUT_INT_array+x_i) = Ipfc;
+    *(V_OUT_INT_array+x_i) = Vrect;
     *(V_IN_array+x_i) = VL_fb;
 //    *(V_Ref_array+x_i) = VbusAvg;
 //    *(V_Ref_array+x_i) = Vrect;
@@ -767,18 +767,18 @@ void Coef_fill()
     // PID coefficients & Clamp values - Current loop (Q26), 100kHz Cloop sampling
 
     //Dmax_I  = _IQ24(0.984375);
-    Pgain_I = _IQ26(0.04);
+   // Pgain_I = _IQ26(0.04);
     //Pgain_I = _IQ26(0.0);
     //Igain_I = _IQ26(0.006875);
-    Igain_I = _IQ26(0.07);
-    Dgain_I = _IQ26(0.0);
+ //   Igain_I = _IQ26(0.07);
+  //  Dgain_I = _IQ26(0.0);
 
     //Dmax_V  = _IQ24(0.984375);
-    Pgain_V = _IQ26(0.4);
+ //   Pgain_V = _IQ26(0.4);
     //Pgain_I = _IQ26(0.0);
     //Igain_I = _IQ26(0.006875);
-    Igain_V = _IQ26(0.08);
-    Dgain_V = _IQ26(0.0);
+ //   Igain_V = _IQ26(0.08);
+ //   Dgain_V = _IQ26(0.0);
 
     // Coefficient init --- Coeeficient values in Q26
     // Use IQ Maths to generate floating point values for the CLA
