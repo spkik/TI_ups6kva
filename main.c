@@ -70,8 +70,6 @@ volatile long DutyA;
 volatile long Vrect, VinvSqr, VrectAvg, VbusHAvg, VbusAvg, VrectRMS, Freq_Vin;
 volatile long VbusVcmd,PFCIcmd;             //PFCIcmd_avg;
 
-volatile long VbusTarget, error_v=0;        // Set point for the PFC voltage loop
-
 volatile long   VbusTargetSlewed;           // Slewed set point for the voltage loop
 volatile long   VbusSlewRate = 1500;        // Voltage loop Slew rate adjustment (Q24)
 volatile long   pfc_slew_temp;              // Temp variable: used only if implementing
@@ -202,9 +200,9 @@ void main(void)
     //sine analyzer initialization
     sine_mainsV.Vin=0;
    // sine_mainsV.SampleFreq=_IQ15(5120.0);
-    sine_mainsV.SampleFreq=_IQ15(5128.0);
-    sine_mainsV.Threshold=_IQ15(0.1);  //(0.02);
-    sine_mainsV.antifreezeperiod = 512; // 10Hz
+    sine_mainsV.SampleFreq=_IQ15(5128.0);   // 1/195us=5128Hz
+    sine_mainsV.Threshold=_IQ15(0.1);       //(0.02);
+    sine_mainsV.antifreezeperiod = 512;     //512*195us=0.1ms=10Hz
     // End sine analyzer initialization
 
     // Configure ADC to be triggered from EPWM1 Period event
@@ -411,6 +409,8 @@ void C1(void)  // soft start thyristors
         fire_angle_min = 0;
         start_flag = 0;
 
+        VbusTargetSlewed=0;
+
         VTimer1++;                                // обнуляем таймер отсчета угла вкл. тиристора по "+" полуволне
         VTimer2++;                                // обнуляем таймер отсчета угла вкл. тиристора по "-" полуволне
 
@@ -464,7 +464,6 @@ else
 //  {
 //      VbusTargetSlewed = VbusTargetSlewed - VbusSlewRate;
         VbusTargetSlewed = VBUS_TARGET;
-        VbusTarget = VBUS_TARGET;
         //Gui_Vbus_set = VBUS_RATED_VOLTS*64;//Q15, Set Gui Vbus set point to initial value VBUS_RATED_VOLTS
         //start_flag = 0;
 #ifndef PFC_debug
@@ -492,7 +491,7 @@ void C3(void) //
     {
 
         // pfcSlewRate has to be a positive value
-        pfc_slew_temp = VbusTarget - VbusTargetSlewed;
+        pfc_slew_temp = VBUS_TARGET - VbusTargetSlewed;
 
         if (pfc_slew_temp >= VbusSlewRate) // Positive Command. Increase Vbus
         {
@@ -620,7 +619,7 @@ interrupt void SECONDARY_ISR(void)
          EDIS;
 
          VbusTargetSlewed = 0;
-         VbusTarget = 0;
+
          //Gui_Vbus_set = 0;
      }
 
@@ -730,7 +729,6 @@ void Net_connect()
 
     VbusVcmd = _IQ24(0.5);          //Variable initialized for open Volt loop $ closed current loop test with light load
 
-    VbusTarget = _IQ24(0.0);
     VbusTargetSlewed = _IQ24(0.0);
     pfc_slew_temp = 0;
     start_flag = 0;
