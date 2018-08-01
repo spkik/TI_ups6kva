@@ -118,7 +118,7 @@
 //---------------------------------------------------------------
 //#define RECT_debug    // установка настроек для проверки плавного запуска тиристоров без PFC
 
-#define  PFC_debug    // установка настроек для проверки ключей PFC
+//#define  PFC_debug    // установка настроек для проверки ключей PFC
 #ifdef PFC_debug
     #define VBUS_MIN ((int32)((300.0/VBUS_FULL_RANGE)*4096*4096)) //Min bus volt with AC in and PFC off
 #else

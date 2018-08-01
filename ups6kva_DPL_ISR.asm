@@ -44,6 +44,7 @@
 		.ref	_VTimer1
 		.ref	_VTimer2
 
+		.ref	_KoutTargetSlewed
 		.ref 	_sampleCount
 		.ref	_ADCout_V
 		.ref	_ADCout_HALF
@@ -183,6 +184,13 @@ _DPL_ISR:
 
 			ADDL	@XAR4,ACC				;в XAR4 = адрес 0-го элемента sinTable_50Hz + смещение
 			MOVL	ACC,*XAR4				;загружаем в ACC содержимое €чейки sinTable_50Hz, на кот. указывает XAR4
+
+			MOVW	DP,#_KoutTargetSlewed
+			MOVL	XT,@_KoutTargetSlewed
+			IMPYL	P, XT, *XAR4
+			QMPYL	ACC, XT, *XAR4			; Q24* Q24 = I16Q48
+			LSL		ACC,#8					; ACC = I8Q24
+
 			MOVW	DP,#_V_Ref
 			MOVL 	@_V_Ref,ACC				;выгружаем аккумул€тор в переменную
 

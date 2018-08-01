@@ -70,6 +70,8 @@ volatile long DutyA;
 volatile long Vrect, VinvSqr, VrectAvg, VbusHAvg, VbusAvg, VrectRMS, Freq_Vin;
 volatile long VbusVcmd,PFCIcmd;             //PFCIcmd_avg;
 
+volatile long   KoutTargetSlewed;
+
 volatile long   VbusTargetSlewed;           // Slewed set point for the voltage loop
 volatile long   VbusSlewRate = 1500;        // Voltage loop Slew rate adjustment (Q24)
 volatile long   pfc_slew_temp;              // Temp variable: used only if implementing
@@ -409,7 +411,12 @@ void C1(void)  // soft start thyristors
         fire_angle_min = 0;
         start_flag = 0;
 
-        VbusTargetSlewed=0;
+        VbusTargetSlewed=0;                     // раскоментить если необходимо выключать PFC вместе с RECT при V_INrms<180
+        CNTL_2P2Z_CoefStruct2.max  = _IQ24(0.0002);
+        CNTL_2P2Z_CoefStruct1.max  = _IQ24(0.001);
+
+        run_flag = 0;
+        KoutTargetSlewed = _IQ24(0.0);
 
         VTimer1++;                                // обнуляем таймер отсчета угла вкл. тиристора по "+" полуволне
         VTimer2++;                                // обнуляем таймер отсчета угла вкл. тиристора по "-" полуволне
@@ -508,7 +515,14 @@ void C3(void) //
         }
 
 #endif
+        if(KoutTargetSlewed <_IQ24(1.0))
+            {KoutTargetSlewed += _IQ24(0.001);}
+        else
+            {KoutTargetSlewed = _IQ24(1.0);}
 
+        Coef2P2Z_V.max = _IQ24(C2P2ZCoeff_V_MAX);
+        Coef2P2Z_V.min = _IQ24(C2P2ZCoeff_V_MIN);
+/*
         // если PFC вышел на режим и VBUS достигло 400 В, плавно поднимаем насыщение  V регулятора инвертора
 
         if(Coef2P2Z_V.max < _IQ24(C2P2ZCoeff_V_MAX))
@@ -520,7 +534,7 @@ void C3(void) //
              Coef2P2Z_V.min -= _IQ24(0.0005);
         else
              Coef2P2Z_V.min = _IQ24(C2P2ZCoeff_V_MIN);
-
+*/
 
 #ifndef INV
 
@@ -729,6 +743,7 @@ void Net_connect()
 
     VbusVcmd = _IQ24(0.5);          //Variable initialized for open Volt loop $ closed current loop test with light load
 
+    KoutTargetSlewed = _IQ24(0.0);
     VbusTargetSlewed = _IQ24(0.0);
     pfc_slew_temp = 0;
     start_flag = 0;
