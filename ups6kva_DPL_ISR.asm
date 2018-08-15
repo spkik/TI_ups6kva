@@ -283,7 +283,7 @@ PositiveCycle_INV:
 	        EALLOW
 			;MOV		@_AdcRegs.ADCSOC4CTL.bit.CHSEL, #10	; Switch ADC to mesure VbusH voltage
 			;MOV		@_AdcRegs.ADCSOC4CTL,#0x3A86		; Switch ADC,ePWM2,socA,V_bus_H
-			MOV		@_AdcRegs.ADCSOC4CTL,#0x4A86		; Switch ADC,ePWM3,socA,V_bus_H
+			MOV		@_AdcRegs.ADCSOC4CTL,#0x2A86		; Switch ADC,ePWM1,socA,V_bus_H
 			EDIS
 	        MOVW 	DP, #_EPwm2Regs.AQCTLA                     ; load Data Page to read ePWM registers
 			;MOV		@_EPwm2Regs.AQCTLA.bit.CAU, #1		; CLEAR ePWM1 on CompA-Up (enable switching)
@@ -354,8 +354,8 @@ NegativeCycle_INV:
 	        MOVW 	DP, #_AdcRegs.ADCSOC4CTL            ; load Data Page to read ADC results
 ;			MOV		@_AdcRegs.ADCSOC1CTL.bit.CHSEL, #4	; Switch ADC to mesure VbusH voltage
 			EALLOW
-			;MOV		@_AdcRegs.ADCSOC4CTL, #0x2B06		; Switch ADC,ePWM1,socA,V_bus_L
-			MOV		@_AdcRegs.ADCSOC4CTL, #0x4B06		; Switch ADC,ePWM3,socA,V_bus_L
+			MOV		@_AdcRegs.ADCSOC4CTL, #0x2B06		; Switch ADC,ePWM1,socA,V_bus_L
+			;MOV		@_AdcRegs.ADCSOC4CTL, #0x4B06		; Switch ADC,ePWM3,socA,V_bus_L
 	        EDIS
 	        MOVW 	DP, #_EPwm1Regs.AQCTLA                   ; load Data Page to read ePWM registers
 ;			MOV		@_EPwm1Regs.AQCTLA.bit.CAU, #1		; CLEAR ePWM2 on CompA-Up (enable switching)

@@ -221,14 +221,14 @@ void main(void)
     ChSel[6]=0x3;       //VN_fb     HALF_REF
 
     // Select Trigger Event for ADC conversion
-    TrigSel[0]= ADCTRIG_EPWM3_SOCA;
-    TrigSel[1]= ADCTRIG_EPWM3_SOCA;
-    TrigSel[2]= ADCTRIG_EPWM3_SOCA;
+    TrigSel[0]= ADCTRIG_EPWM1_SOCA;
+    TrigSel[1]= ADCTRIG_EPWM1_SOCA;
+    TrigSel[2]= ADCTRIG_EPWM1_SOCA;
 
-    TrigSel[3]= ADCTRIG_EPWM3_SOCA;         //1 было
-    TrigSel[4]= ADCTRIG_EPWM3_SOCA;         //1
-    TrigSel[5]= ADCTRIG_EPWM3_SOCA;         //1
-    TrigSel[6]= ADCTRIG_EPWM3_SOCA;         //1
+    TrigSel[3]= ADCTRIG_EPWM1_SOCA;         //1 было
+    TrigSel[4]= ADCTRIG_EPWM1_SOCA;         //1
+    TrigSel[5]= ADCTRIG_EPWM1_SOCA;         //1
+    TrigSel[6]= ADCTRIG_EPWM1_SOCA;         //1
     // associate the appropriate peripheral trigger to the ADC channel
 
     // Configure the ADC with auto interrupt clear mode
@@ -417,6 +417,8 @@ void C1(void)  // soft start thyristors
 
         run_flag = 0;
         KoutTargetSlewed = _IQ24(0.0);
+        Coef2P2Z_V.max = _IQ24(0.0);
+        Coef2P2Z_V.min = _IQ24(0.0);
 
         VTimer1++;                                // обнуляем таймер отсчета угла вкл. тиристора по "+" полуволне
         VTimer2++;                                // обнуляем таймер отсчета угла вкл. тиристора по "-" полуволне
@@ -762,8 +764,8 @@ void Coef_fill()
     Coef2P2Z_V.a2 = _IQ26(C2P2ZCoeff_V_A2);
     Coef2P2Z_V.a1 = _IQ26(C2P2ZCoeff_V_A1);
     //Coef2P2Z_V.max = _IQ24(C2P2ZCoeff_V_MAX);
-    Coef2P2Z_V.max = _IQ24(0);
-    Coef2P2Z_V.min = _IQ24(0);
+    Coef2P2Z_V.max = _IQ24(0.0);
+    Coef2P2Z_V.min = _IQ24(0.0);
     Coef2P2Z_V.i_min = _IQ24(C2P2ZCoeff_V_MIN);
 
     Coef2P2Z_I.b2 = _IQ26(C2P2ZCoeff_I_B2);

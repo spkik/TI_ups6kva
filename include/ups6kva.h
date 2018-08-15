@@ -43,11 +43,11 @@
 #define C2P2ZCoeff_2_MIN -0.300000
 
 /////////////////////////////////////////ток////////////////////////////////////////////////
-#define C2P2ZCoeff_1_B2 0.0002304
+#define C2P2ZCoeff_1_B2 0.000000                            // 0.0002304
 //#define C2P2ZCoeff_1_B2 0.0
-#define C2P2ZCoeff_1_B1 -0.9004608
+#define C2P2ZCoeff_1_B1 -2.64000                            // -0.9004608
 //#define C2P2ZCoeff_1_B1 -0.9
-#define C2P2ZCoeff_1_B0 1.0174179
+#define C2P2ZCoeff_1_B0 2.992000                            // 1.0174179
 //#define C2P2ZCoeff_1_B0 0.9
 
 #define C2P2ZCoeff_1_A2 0.000000
