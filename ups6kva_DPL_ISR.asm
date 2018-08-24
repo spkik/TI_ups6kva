@@ -58,6 +58,9 @@
 		.ref	_Duty
 		.ref	_sineTable_50Hz
 
+		.ref	_Vrect
+		.ref	_Vbus
+
 		.ref 	_DutyA
 		.ref	_ab_run_flag
 
@@ -101,6 +104,8 @@ _DPL_Init:
 			CNTL_2P2Z_INIT 1		;current compensator
 
 			MATH_EMAVG_INIT 1
+			;MATH_EMAVG_INIT 2
+			;MATH_EMAVG_INIT 3
 
 			PFC_InvRmsSqr_INIT 1
 
@@ -227,9 +232,17 @@ COMPV:
 		;///////////////////////////////////////////////////////////////////PFC DPL_ISR SECTION//////////////////////////////////////////
 
 			ADCDRV_1ch 		3			; Ipfc load adc result
-			ADCDRV_1ch 		4			; Vbus load adc result
+			ADCDRV_1ch 		4			; Vbus_H load adc result
 			ADCDRV_1ch 		5			; VL_fb load adc result
-			ADCDRV_1ch 		6			; VN_fb load adc result
+			ADCDRV_1ch 		6			; Vbus_L load adc result
+
+			MOVW 	DP, #_AdcResult		; load Data Page to read ADC results
+			MOV		ACC, @_AdcResult.ADCRESULT4<<12			; ACC = Vbus_H
+			ADD		ACC, @_AdcResult.ADCRESULT6<<12			; ACC = Vbus_H + Vbus_L
+			MOV		T, #1
+			ASRL	ACC,T
+			MOVW	DP, #_Vbus
+			MOVL	@_Vbus, ACC						; Vbus = (Vbus_H + Vbus_L)/2
 
 			PFC_ICMD 		1			; Bridgeless PFC current command
 
@@ -240,7 +253,8 @@ COMPV:
 
 		    PFC_InvRmsSqr  	1
 			MATH_EMAVG		1
-
+			;MATH_EMAVG		2
+			;MATH_EMAVG		3
 
 		;Execute Vloop every VoltCurrLoopExecRatio times, defined in BridgelessPFC-Settings.h file
 			MOVW	DP,#(VloopCtr)
@@ -269,22 +283,22 @@ SKIP_VLOOP_CALC:
 CalculateVrect:
 	        MOVW 	DP, #_AdcResult                     ; load Data Page to read ADC results
         	MOV		ACC, @_AdcResult.ADCRESULT5<<12		; ACC = Line
-        	SUB		ACC, @_AdcResult.ADCRESULT6<<12		; ACC = Line - Neutral
+        	SUB		ACC, @_AdcResult.ADCRESULT1<<12		; ACC = Line - Neutral
         	B		NegativeCycle, LEQ					; Branch to Negative Half Cycle
 PositiveCycle:
 			; Save Vrect
-			.ref	_Vrect
+
         	MOVW	DP, #_Vrect
 			MOVL	@_Vrect, ACC
 
 PositiveCycle_INV:
 			; ePWM1 & ADC configuration
-	        MOVW 	DP, #_AdcRegs.ADCSOC4CTL            ; load Data Page to read ADC results
-	        EALLOW
+	         ;MOVW 	DP, #_AdcRegs.ADCSOC4CTL            ; load Data Page to read ADC results
+	         ;EALLOW
 			;MOV		@_AdcRegs.ADCSOC4CTL.bit.CHSEL, #10	; Switch ADC to mesure VbusH voltage
 			;MOV		@_AdcRegs.ADCSOC4CTL,#0x3A86		; Switch ADC,ePWM2,socA,V_bus_H
-			MOV		@_AdcRegs.ADCSOC4CTL,#0x2A86		; Switch ADC,ePWM1,socA,V_bus_H
-			EDIS
+			 ;MOV		@_AdcRegs.ADCSOC4CTL,#0x2A86		; Switch ADC,ePWM1,socA,V_bus_H
+			 ;EDIS
 	        MOVW 	DP, #_EPwm2Regs.AQCTLA                     ; load Data Page to read ePWM registers
 			;MOV		@_EPwm2Regs.AQCTLA.bit.CAU, #1		; CLEAR ePWM1 on CompA-Up (enable switching)
 			;MOV		@_EPwm2Regs.AQCTLA.bit.CAD, #2		; SET ePWM1 on CompA-Down (enable switching)
@@ -344,19 +358,19 @@ SkipPWM1Force:
         	B		ControlLoopEnd, UNC
 NegativeCycle:
 	; Save Vrect
-        	MOV		ACC, @_AdcResult.ADCRESULT6<<12		; ACC = Neutral
+        	MOV		ACC, @_AdcResult.ADCRESULT1<<12		; ACC = Neutral
         	SUB		ACC, @_AdcResult.ADCRESULT5<<12		; ACC = Neutral - Line
         	MOVW	DP, #_Vrect
 			MOVL	@_Vrect, ACC
 
 NegativeCycle_INV:
 	; ePWM2 & ADC configuration
-	        MOVW 	DP, #_AdcRegs.ADCSOC4CTL            ; load Data Page to read ADC results
+	         ;MOVW 	DP, #_AdcRegs.ADCSOC4CTL            ; load Data Page to read ADC results
 ;			MOV		@_AdcRegs.ADCSOC1CTL.bit.CHSEL, #4	; Switch ADC to mesure VbusH voltage
-			EALLOW
-			MOV		@_AdcRegs.ADCSOC4CTL, #0x2B06		; Switch ADC,ePWM1,socA,V_bus_L
+			 ;EALLOW
+			 ;MOV		@_AdcRegs.ADCSOC4CTL, #0x2B06		; Switch ADC,ePWM1,socA,V_bus_L
 			;MOV		@_AdcRegs.ADCSOC4CTL, #0x4B06		; Switch ADC,ePWM3,socA,V_bus_L
-	        EDIS
+	         ;EDIS
 	        MOVW 	DP, #_EPwm1Regs.AQCTLA                   ; load Data Page to read ePWM registers
 ;			MOV		@_EPwm1Regs.AQCTLA.bit.CAU, #1		; CLEAR ePWM2 on CompA-Up (enable switching)
 ;			MOV		@_EPwm1Regs.AQCTLA.bit.CAD, #2		; SET ePWM2 on CompA-Down (enable switching)

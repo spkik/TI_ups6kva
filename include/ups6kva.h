@@ -118,6 +118,14 @@ extern volatile int32  *MATH_EMAVG_In1;
 extern volatile int32  *MATH_EMAVG_Out1;
 extern volatile long MATH_EMAVG_Multiplier1;
 
+//extern volatile int32  *MATH_EMAVG_In2;
+//extern volatile int32  *MATH_EMAVG_Out2;
+//extern volatile long MATH_EMAVG_Multiplier2;
+
+//extern volatile int32  *MATH_EMAVG_In3;
+//extern volatile int32  *MATH_EMAVG_Out3;
+//extern volatile long MATH_EMAVG_Multiplier3;
+
 extern volatile long *PFC_ICMD_Vcmd1;
 extern volatile long *PFC_ICMD_VinvSqr1;
 extern volatile long *PFC_ICMD_VacRect1;

@@ -63,11 +63,13 @@ volatile int32  Duty = 0;
 //////////////////////////////////AC_DC DP_LIB Variables//////////////////////////////////
 volatile long Ipfc;//K_dcm_corr=0;
 volatile long Vbus;
+volatile long Vbus_H;
+volatile long Vbus_L;
 volatile long VL_fb;
 volatile long VN_fb;
 
 volatile long DutyA;
-volatile long Vrect, VinvSqr, VrectAvg, VbusHAvg, VbusAvg, VrectRMS, Freq_Vin;
+volatile long Vrect, VinvSqr, VrectAvg, VbusAvg_H, VbusAvg_L, VbusAvg, VrectRMS, Freq_Vin;
 volatile long VbusVcmd,PFCIcmd;             //PFCIcmd_avg;
 
 volatile long   KoutTargetSlewed;
@@ -170,8 +172,9 @@ long    V_IN_array[512];                       //массив значений x(n)
 unsigned int x_i;
 #endif
 volatile unsigned int SoftStartThyristors=0;             // флаг плавного запуска тиристоров
-
-
+volatile unsigned int VbusavgH_f=0;
+volatile unsigned int VbusavgL_f=0;
+volatile unsigned int Vbusavg_f=0;
 
 void main(void)
 {
@@ -215,10 +218,10 @@ void main(void)
 
 
     ChSel[3]=0x9;       //Ipfc      I_IN
-    ChSel[4]=0xA;       //Vbus      V_bus_H
-    //ChSel[5]=0xC;     //VbusL     V_bus_L
+    ChSel[4]=0xA;       //Vbus      Vbus_H
     ChSel[5]=0x1;       //VL_fb     V_IN
-    ChSel[6]=0x3;       //VN_fb     HALF_REF
+    ChSel[6]=0xC;       //VbusL     Vbus_L
+    //ChSel[6]=0x3;       //VN_fb     HALF_REF
 
     // Select Trigger Event for ADC conversion
     TrigSel[0]= ADCTRIG_EPWM1_SOCA;
@@ -540,13 +543,31 @@ void C3(void) //
 
 #ifndef INV
 
-        if (VbusAvg < VBUS_UNDERVP_THRSHLD)  //Check for Vbus UV Condition
+        if (VbusAvg  < VBUS_UNDERVP_THRSHLD)  //Check for Vbus UV Condition
         {
             EALLOW;
             EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
             EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
             EDIS;
+            Vbusavg_f=1;
         }
+        if (Vbus_H  < VBUS_UNDERVP_THRSHLD)  //Check for Vbus UV Condition
+               {
+                   EALLOW;
+                   EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+                   EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+                   EDIS;
+                   VbusavgH_f=1;
+               }
+        if (Vbus_L  < VBUS_UNDERVP_THRSHLD)  //Check for Vbus UV Condition
+               {
+                   EALLOW;
+                   EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+                   EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+                   EDIS;
+                   VbusavgL_f=1;
+               }
+
     }
 #endif
     //-----------------
@@ -564,8 +585,8 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     EDIS;
 
 #ifndef FLASH
-    *(V_OUT_INT_array+x_i) = Vrect;
-    *(V_IN_array+x_i) = VL_fb;
+    *(V_OUT_INT_array+x_i) = Vbus;
+    *(V_IN_array+x_i) = Vbus_H;
 //    *(V_Ref_array+x_i) = VbusAvg;
 //    *(V_Ref_array+x_i) = Vrect;
 //    *(V_Fdb_array+x_i) = Vbus;
@@ -626,7 +647,7 @@ interrupt void SECONDARY_ISR(void)
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
     EDIS;
 
-    if (VbusAvg > VBUS_OVP_THRSHLD)//Check for Vbus OV Condition
+    if (VbusAvg   > VBUS_OVP_THRSHLD)//Check for Vbus OV Condition
      {
          OV_flag = 1;
          EALLOW;
@@ -636,10 +657,37 @@ interrupt void SECONDARY_ISR(void)
 
          VbusTargetSlewed = 0;
 
+         Vbusavg_f=1;
          //Gui_Vbus_set = 0;
      }
 
+    if (Vbus_H  > VBUS_OVP_THRSHLD)//Check for Vbus OV Condition
+         {
+             OV_flag = 1;
+             EALLOW;
+             EPwm1Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
+             EPwm2Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
+             EDIS;
 
+             VbusTargetSlewed = 0;
+
+             VbusavgH_f=1;
+             //Gui_Vbus_set = 0;
+         }
+
+    if (Vbus_L  > VBUS_OVP_THRSHLD)//Check for Vbus OV Condition
+         {
+             OV_flag = 1;
+             EALLOW;
+             EPwm1Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
+             EPwm2Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
+             EDIS;
+
+             VbusTargetSlewed = 0;
+
+             VbusavgL_f=1;
+             //Gui_Vbus_set = 0;
+         }
 
      //Calculate RMS input voltage and input frequency
 
@@ -689,9 +737,9 @@ void Net_connect()
 ///////////////////////////////////////////AC_DC////////////////////////////////////////////
 
     ADCDRV_1ch_Rlt3 = &Ipfc;
-    ADCDRV_1ch_Rlt4 = &Vbus;
+    ADCDRV_1ch_Rlt4 = &Vbus_H;
     ADCDRV_1ch_Rlt5 = &VL_fb;
-    ADCDRV_1ch_Rlt6 = &VN_fb;
+    ADCDRV_1ch_Rlt6 = &Vbus_L;
 
     //connect the 2P2Z connections, for the inner Current Loop, Loop1
     CNTL_2P2Z_Ref1 = &PFCIcmd;
@@ -704,9 +752,9 @@ void Net_connect()
     CNTL_2P2Z_Fdbk2= &Vbus;
     CNTL_2P2Z_Coef2 = &CNTL_2P2Z_CoefStruct2.b2;
     // Math_avg block connections - Instance 2
-    MATH_EMAVG_In1=&Vbus;
-    MATH_EMAVG_Out1=&VbusAvg;
-    MATH_EMAVG_Multiplier1=_IQ30(0.00390625);   //
+    //MATH_EMAVG_In1=&Vbus;
+    //MATH_EMAVG_Out1=&VbusAvg;
+    //MATH_EMAVG_Multiplier1=_IQ30(0.00390625);   //
     // INV_RMS_SQR block connections
     VrectRMS = (sine_mainsV.Vrms)<< 9;//Q15 --> Q24, (sine_mainsV.Vrms) is in Q15
     PFC_InvRmsSqr_In1=&VrectRMS;
@@ -733,12 +781,22 @@ void Net_connect()
     MATH_EMAVG_Out1=&VbusAvg;
     MATH_EMAVG_Multiplier1=_IQ30(0.000030);
 
+//    MATH_EMAVG_In2=&Vbus_H;
+//    MATH_EMAVG_Out2=&VbusAvg_H;
+//    MATH_EMAVG_Multiplier2=_IQ30(0.000030);
+
+//    MATH_EMAVG_In3=&Vbus_L;
+//    MATH_EMAVG_Out3=&VbusAvg_L;
+//    MATH_EMAVG_Multiplier3=_IQ30(0.000030);
+
     // Initialize the net variables
     DutyA =_IQ24(0.0);
     //Duty4A =_IQ24(0.0);
     VrectAvg = _IQ24(0.0);
     VrectRMS = _IQ24(0.0);
     VbusAvg = _IQ24(0.0);
+    VbusAvg_H = _IQ24(0.0);
+    VbusAvg_L = _IQ24(0.0);
     VinvSqr = _IQ24(0.0);
     Vrect = _IQ24(0.0);
     PFCIcmd = _IQ24(0.0);
