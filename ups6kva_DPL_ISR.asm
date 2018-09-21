@@ -35,6 +35,7 @@
 		.def 	_DPL_ISR
 		.data
 		.def	 IntCount
+		.ref	 _Iout_fault
 
 		.ref	_SyncPosFlag
 		.ref	_SyncNegFlag
@@ -63,6 +64,7 @@
 
 		.ref 	_DutyA
 		.ref	_ab_run_flag
+		.ref	_Fault
 
 		; dummy variable for pointer initialisation
 ZeroNet	 		.usect "ZeroNet_Section",2,1,1	; output terminal 1
@@ -104,8 +106,9 @@ _DPL_Init:
 			CNTL_2P2Z_INIT 1		;current compensator
 
 			MATH_EMAVG_INIT 1
-			;MATH_EMAVG_INIT 2
-			;MATH_EMAVG_INIT 3
+			MATH_EMAVG_INIT 2
+			MATH_EMAVG_INIT 3
+			MATH_EMAVG_INIT 4
 
 			PFC_InvRmsSqr_INIT 1
 
@@ -209,11 +212,15 @@ COMPV:
 
 			ADCDRV_1ch 2
 			MOVW	DP,#_ADCout_I
-			MOVL	ACC,@_ADCout_I		; ACC = Vout
+			MOVL	ACC,@_ADCout_I		; ACC = Iout
 			MOVW	DP,#_ADCout_HALF
-			SUBL	ACC,@_ADCout_HALF	; ACC = Vout - half_ref
-			MOVW	DP,#_ADCout_I
+			SUBL	ACC,@_ADCout_HALF	; ACC = Iout - half_ref
+			ABS		ACC
+			MOVW	DP,#_I_Fdb
 			MOVL	@_I_Fdb, ACC
+			MOVW	DP,#_Iout_fault
+			CMPL	ACC,@_Iout_fault
+			B		Fault,GEQ
 
 			CNTL_2P2Z I
 
@@ -253,8 +260,9 @@ COMPV:
 
 		    PFC_InvRmsSqr  	1
 			MATH_EMAVG		1
-			;MATH_EMAVG		2
-			;MATH_EMAVG		3
+			MATH_EMAVG		2
+			MATH_EMAVG		3
+			MATH_EMAVG		4
 
 		;Execute Vloop every VoltCurrLoopExecRatio times, defined in BridgelessPFC-Settings.h file
 			MOVW	DP,#(VloopCtr)
@@ -417,10 +425,29 @@ NegativeCycle_INV:
 			OR		@_NegAngle,#(1<<0)					;устанавливаем признак отсчета угла по "-" волне
 			MOVW	DP,#_PosAngle
 			AND		@_PosAngle,#~(1<<0)					;сбрасываем признак отсчета угла по "+" волне
+			B		ControlLoopEnd, UNC
+
 
 ;			MOV		@_EPwm2Regs.AQCTLA.bit.CAU, #2		; SET ePWM1 on CompA-Up (force high)
 ;			MOV		@_EPwm2Regs.AQCTLA.bit.CAD, #2		; SET ePWM1 on CompA-Down
 ;			MOV		@_EPwm2Regs.AQCTLA, #160			; SET ePWM1 on CompA-Up/Down (force high)
+Fault:
+
+			MOVW 	DP, #_GpioDataRegs.GPBCLEAR
+			MOV		@_GpioDataRegs.GPBCLEAR.bit.GPIO32,#1			;close the upper thyristor
+         	MOV		@_GpioDataRegs.GPACLEAR.bit.GPIO12,#1			;close the lower thyristor
+         	EALLOW
+         	MOVW 	DP, #_EPwm1Regs.TZFRC
+         	OR		@_EPwm1Regs.TZFRC.all, #4
+         	MOVW 	DP, #_EPwm2Regs.TZFRC
+         	OR		@_EPwm2Regs.TZFRC.all,#4					;Turn off PWM for OV condition
+         	MOVW 	DP, #_EPwm3Regs.TZFRC
+         	OR		@_EPwm3Regs.TZFRC.all,#4					;Turn off PWM for UV condition
+         	MOVW 	DP, #_EPwm6Regs.TZFRC
+         	OR		@_EPwm6Regs.TZFRC.all,#4					;Turn off PWM for UV condition
+         	EDIS
+			MOVW	DP, #_Fault
+			MOV		@_Fault,#1
 SkipPWM2Force:
 ;	        MOVW 	DP, #_GpioDataRegs.GPADAT            ; load Data Page to read GPIO registers
 ;			MOV	@_GpioDataRegs.GPACLEAR, #128 			; Clear GPIO7, Used for debug purposes

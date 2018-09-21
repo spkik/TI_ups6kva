@@ -64,12 +64,26 @@
 #define Ku_VIN              (float32)(3.65L/10.0L)       //0.365                        // коэффициент усиления ОУ
 #define VIN_GAIN            (float32)(Kdiv_VIN*Ku_VIN)
 
-#define V_IN_OpAmpOut       (float32)((VIN_THRSHLD*VIN_GAIN+ADC_REF)/2)     //input ADC
+#define V_IN_OpAmpOut       (float32)((VIN_THRSHLD*VIN_GAIN+ADC_REF)/2.0)     //input ADC
 #define V_IN_ADC            (float32)(V_IN_OpAmpOut/ADC_REF)                //format ADC
 #define V_RECT_AMP          (float32)(V_IN_ADC-0.5)                         // Vrect_max
 #define ISQRT2              (float32)(0.7071067811865475)
 #define V_RECT_RMS_THRSHLD  _IQ24(V_RECT_AMP*ISQRT2)                  // VrectRMS
 //
+//I_OUT
+#define IOUT_FULL_RANGE     (float32)(100.0)    //full range of ADC for I_OUT (amplitude)
+#define IOUT_MAX_30         (float32)(42.426)   //30*sqrt(2)
+#define Kdt                 (float32)(1.0/2500.0)*62.0   //=0.0248 Turns ratio of current transformer*Ri(Ohm)
+#define IOUT_OpAmpOut       (float32)((IOUT_MAX_30*Kdt+ADC_REF)/2.0)   //=1.776 input ADC
+#define IOUT_ADC            (float32)(IOUT_OpAmpOut/ADC_REF)             //=0.71  format ADC
+#define IoutRect_max        (float32)(IOUT_ADC-0.5)                      //=0.21  IoutRect_max
+#define I_OUT_THRSHLD_30    _IQ24(IoutRect_max*2.0/3.14159)              //=0.13369 IoutRectAvg=IoutRect_max*2/pi
+
+#define IOUT_MAX_54         (float32)(76.368)   //54*sqrt(2)
+#define IOUT_OpAmpOut_54    (float32)((IOUT_MAX_54*Kdt+ADC_REF)/2.0)   //=2.1969 input ADC
+#define IOUT_ADC_54         (float32)(IOUT_OpAmpOut_54/ADC_REF)        //=0.8787  format ADC
+#define IoutRect_54         (float32)(IOUT_ADC_54-0.5)                    //=0.3787  IoutRect_max
+#define I_OUT_THRSHLD_54    _IQ24(IoutRect_54)                         //
 
 //#define VBUS_FULL_RANGE 	(410.0)//(519.0)(522.5)//(503.0) //full range of ADC for VBUS
 #define VBUS_FULL_RANGE     (440.0)//(519.0)(522.5)//(503.0) //full range of ADC for VBUS

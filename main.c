@@ -69,7 +69,8 @@ volatile long VL_fb;
 volatile long VN_fb;
 
 volatile long DutyA;
-volatile long Vrect, VinvSqr, VrectAvg, VbusAvg_H, VbusAvg_L, VbusAvg, VrectRMS, Freq_Vin;
+volatile long Vrect=0, VinvSqr=0, VrectAvg=0, VbusAvg_H=0, VbusAvg_L=0, VbusAvg=0, VrectRMS=0, Freq_Vin=0;
+volatile long IoutAvg=0;
 volatile long VbusVcmd,PFCIcmd;             //PFCIcmd_avg;
 
 volatile long   KoutTargetSlewed;
@@ -175,7 +176,9 @@ volatile unsigned int SoftStartThyristors=0;             // флаг плавного запуск
 volatile unsigned int VbusavgH_f=0;
 volatile unsigned int VbusavgL_f=0;
 volatile unsigned int Vbusavg_f=0;
+volatile unsigned int Fault=0;
 
+volatile unsigned long Iout_fault = 0;
 void main(void)
 {
 //=================================================================================
@@ -358,8 +361,8 @@ void C1(void)  // soft start thyristors
          temp_zero = _IQ24(0);
          CNTL_2P2Z_Ref2 = &temp_zero;            // Slewed Voltage Command
         }
-   static long a= V_RECT_RMS_THRSHLD;
-    if (VrectRMS >= a)       // 180 Vnet_rms
+
+    if (VrectRMS >= V_RECT_RMS_THRSHLD)       // 180 Vnet_rms
     {
         SoftStartThyristors = 1;
 
@@ -542,31 +545,15 @@ void C3(void) //
 */
 
 #ifndef INV
-
-        if (VbusAvg  < VBUS_UNDERVP_THRSHLD)  //Check for Vbus UV Condition
+        static long a= I_OUT_THRSHLD_30;
+        if ((VbusAvg < VBUS_UNDERVP_THRSHLD)||(VbusAvg_H < VBUS_UNDERVP_THRSHLD)||(VbusAvg_H < VBUS_UNDERVP_THRSHLD)||(IoutAvg >= a))  //Check for Vbus UV Condition
         {
             EALLOW;
             EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
             EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
             EDIS;
-            Vbusavg_f=1;
+            VbusavgL_f=1;
         }
-        if (Vbus_H  < VBUS_UNDERVP_THRSHLD)  //Check for Vbus UV Condition
-               {
-                   EALLOW;
-                   EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
-                   EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
-                   EDIS;
-                   VbusavgH_f=1;
-               }
-        if (Vbus_L  < VBUS_UNDERVP_THRSHLD)  //Check for Vbus UV Condition
-               {
-                   EALLOW;
-                   EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
-                   EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
-                   EDIS;
-                   VbusavgL_f=1;
-               }
 
     }
 #endif
@@ -586,7 +573,7 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
 
 #ifndef FLASH
     *(V_OUT_INT_array+x_i) = Vbus;
-    *(V_IN_array+x_i) = Vbus_H;
+    *(V_IN_array+x_i) = I_Fdb;
 //    *(V_Ref_array+x_i) = VbusAvg;
 //    *(V_Ref_array+x_i) = Vrect;
 //    *(V_Fdb_array+x_i) = Vbus;
@@ -647,47 +634,25 @@ interrupt void SECONDARY_ISR(void)
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
     EDIS;
 
-    if (VbusAvg   > VBUS_OVP_THRSHLD)//Check for Vbus OV Condition
+    if ((VbusAvg > VBUS_OVP_THRSHLD)||(VbusAvg_H > VBUS_OVP_THRSHLD)||(VbusAvg_H > VBUS_OVP_THRSHLD)||(IoutAvg>=(I_OUT_THRSHLD_30)))//Check for Vbus OV Condition ||(IoutAvg>=(I_OUT_THRSHLD_30)
      {
          OV_flag = 1;
          EALLOW;
+         GpioDataRegs.GPBCLEAR.bit.GPIO32 = 1;         //close the upper thyristor
+         GpioDataRegs.GPACLEAR.bit.GPIO12 = 1;         //close the lower thyristor
          EPwm1Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
          EPwm2Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
+         EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+         EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
          EDIS;
 
          VbusTargetSlewed = 0;
 
-         Vbusavg_f=1;
+         VbusavgH_f=1;
          //Gui_Vbus_set = 0;
      }
 
-    if (Vbus_H  > VBUS_OVP_THRSHLD)//Check for Vbus OV Condition
-         {
-             OV_flag = 1;
-             EALLOW;
-             EPwm1Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
-             EPwm2Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
-             EDIS;
 
-             VbusTargetSlewed = 0;
-
-             VbusavgH_f=1;
-             //Gui_Vbus_set = 0;
-         }
-
-    if (Vbus_L  > VBUS_OVP_THRSHLD)//Check for Vbus OV Condition
-         {
-             OV_flag = 1;
-             EALLOW;
-             EPwm1Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
-             EPwm2Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
-             EDIS;
-
-             VbusTargetSlewed = 0;
-
-             VbusavgL_f=1;
-             //Gui_Vbus_set = 0;
-         }
 
      //Calculate RMS input voltage and input frequency
 
@@ -781,13 +746,17 @@ void Net_connect()
     MATH_EMAVG_Out1=&VbusAvg;
     MATH_EMAVG_Multiplier1=_IQ30(0.000030);
 
-//    MATH_EMAVG_In2=&Vbus_H;
-//    MATH_EMAVG_Out2=&VbusAvg_H;
-//    MATH_EMAVG_Multiplier2=_IQ30(0.000030);
+    MATH_EMAVG_In2=&Vbus_H;
+    MATH_EMAVG_Out2=&VbusAvg_H;
+    MATH_EMAVG_Multiplier2=_IQ30(0.000030);
 
-//    MATH_EMAVG_In3=&Vbus_L;
-//    MATH_EMAVG_Out3=&VbusAvg_L;
-//    MATH_EMAVG_Multiplier3=_IQ30(0.000030);
+    MATH_EMAVG_In3=&Vbus_L;
+    MATH_EMAVG_Out3=&VbusAvg_L;
+    MATH_EMAVG_Multiplier3=_IQ30(0.000030);
+
+    MATH_EMAVG_In4=&I_Fdb;
+    MATH_EMAVG_Out4=&IoutAvg;
+    MATH_EMAVG_Multiplier4=_IQ30(0.000030);
 
     // Initialize the net variables
     DutyA =_IQ24(0.0);
@@ -809,7 +778,7 @@ void Net_connect()
     start_flag = 0;
     run_flag = 0;
     temp_zero = 0;
-
+    Iout_fault= I_OUT_THRSHLD_54;
 }
 
 void Coef_fill()
