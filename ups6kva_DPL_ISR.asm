@@ -45,6 +45,7 @@
 		.ref	_VTimer1
 		.ref	_VTimer2
 
+		.ref	_SinTableSlewed
 		.ref	_KoutTargetSlewed
 		.ref 	_sampleCount
 		.ref	_ADCout_V
@@ -53,11 +54,17 @@
 		.ref	_V_Fdb
 		.ref	_V_Ref
 		.ref	_V_Out
+		.ref	_I_Out
 		.ref	_I_Fdb
+		.ref	_Ipfc
+
 		.ref	_I_Out
 		.ref	_Zero_Duty
 		.ref	_Duty
 		.ref	_sineTable_50Hz
+		.ref	_I_SW_O
+		.ref	_Isw_fault
+		.ref	_Iin_fault
 
 		.ref	_Vrect
 		.ref	_Vbus
@@ -65,6 +72,7 @@
 		.ref 	_DutyA
 		.ref	_ab_run_flag
 		.ref	_Fault
+		.ref	_I_Fdb_rect
 
 		; dummy variable for pointer initialisation
 ZeroNet	 		.usect "ZeroNet_Section",2,1,1	; output terminal 1
@@ -101,6 +109,7 @@ _DPL_Init:
 			ADCDRV_1ch_INIT 4
 			ADCDRV_1ch_INIT 5
 			ADCDRV_1ch_INIT 6
+			ADCDRV_1ch_INIT 7
 
 			CNTL_2P2Z_INIT 2		;voltage compensator
 			CNTL_2P2Z_INIT 1		;current compensator
@@ -109,6 +118,7 @@ _DPL_Init:
 			MATH_EMAVG_INIT 2
 			MATH_EMAVG_INIT 3
 			MATH_EMAVG_INIT 4
+			MATH_EMAVG_INIT 5
 
 			PFC_InvRmsSqr_INIT 1
 
@@ -199,8 +209,19 @@ _DPL_ISR:
 			QMPYL	ACC, XT, *XAR4			; Q24* Q24 = I16Q48
 			LSL		ACC,#8					; ACC = I8Q24
 
+			MOVW	DP, #_SinTableSlewed
+			MOVL 	@_SinTableSlewed, ACC
+			MOVL 	XAR4, ACC
+
+			MOVW	DP,#_I_Out
+			MOVL	XT,@_I_Out
+			MOVW	DP,#_SinTableSlewed
+			IMPYL	P, XT, @_SinTableSlewed
+			QMPYL	ACC, XT, @_SinTableSlewed			; Q24* Q24 = I16Q48
+			LSL		ACC,#8								; ACC = I8Q24
+
 			MOVW	DP,#_V_Ref
-			MOVL 	@_V_Ref,ACC				;выгружаем аккумулятор в переменную
+			MOVL 	@_V_Ref, ACC				;ACC
 
 			MOVW	DP,#_sampleCount
 			INC 	@_sampleCount
@@ -215,11 +236,20 @@ COMPV:
 			MOVL	ACC,@_ADCout_I		; ACC = Iout
 			MOVW	DP,#_ADCout_HALF
 			SUBL	ACC,@_ADCout_HALF	; ACC = Iout - half_ref
-			ABS		ACC
 			MOVW	DP,#_I_Fdb
-			MOVL	@_I_Fdb, ACC
+			MOVL	@_I_Fdb,ACC
+			ABS		ACC
+			MOVW	DP,#_I_Fdb_rect
+			MOVL	@_I_Fdb_rect, ACC
 			MOVW	DP,#_Iout_fault
 			CMPL	ACC,@_Iout_fault
+			B		Fault,GEQ
+
+			ADCDRV_1ch 7
+			MOVW	DP,#_I_SW_O
+			MOVL	ACC,@_I_SW_O
+			MOVW	DP,#_Isw_fault
+			CMPL	ACC,@_Isw_fault
 			B		Fault,GEQ
 
 			CNTL_2P2Z I
@@ -243,6 +273,13 @@ COMPV:
 			ADCDRV_1ch 		5			; VL_fb load adc result
 			ADCDRV_1ch 		6			; Vbus_L load adc result
 
+			MOVW	DP,#_Ipfc
+			MOVL	ACC,@_Ipfc
+			MOVW	DP,#_Iin_fault
+			CMPL	ACC,@_Iin_fault
+			B		Fault,GEQ
+
+
 			MOVW 	DP, #_AdcResult		; load Data Page to read ADC results
 			MOV		ACC, @_AdcResult.ADCRESULT4<<12			; ACC = Vbus_H
 			ADD		ACC, @_AdcResult.ADCRESULT6<<12			; ACC = Vbus_H + Vbus_L
@@ -263,6 +300,7 @@ COMPV:
 			MATH_EMAVG		2
 			MATH_EMAVG		3
 			MATH_EMAVG		4
+			MATH_EMAVG		5
 
 		;Execute Vloop every VoltCurrLoopExecRatio times, defined in BridgelessPFC-Settings.h file
 			MOVW	DP,#(VloopCtr)
@@ -432,13 +470,16 @@ NegativeCycle_INV:
 ;			MOV		@_EPwm2Regs.AQCTLA.bit.CAD, #2		; SET ePWM1 on CompA-Down
 ;			MOV		@_EPwm2Regs.AQCTLA, #160			; SET ePWM1 on CompA-Up/Down (force high)
 Fault:
-
 			MOVW 	DP, #_GpioDataRegs.GPBCLEAR
 			MOV		@_GpioDataRegs.GPBCLEAR.bit.GPIO32,#1			;close the upper thyristor
          	MOV		@_GpioDataRegs.GPACLEAR.bit.GPIO12,#1			;close the lower thyristor
-         	EALLOW
+
+         	MOVW 	DP, #_GpioDataRegs.GPADAT
+         	OR      @_GpioDataRegs.GPASET.all,#8         		;LED2
+         	OR		@_GpioDataRegs.GPASET.all,#6         		;LED1
+			EALLOW
          	MOVW 	DP, #_EPwm1Regs.TZFRC
-         	OR		@_EPwm1Regs.TZFRC.all, #4
+         	OR		@_EPwm1Regs.TZFRC.all,#4
          	MOVW 	DP, #_EPwm2Regs.TZFRC
          	OR		@_EPwm2Regs.TZFRC.all,#4					;Turn off PWM for OV condition
          	MOVW 	DP, #_EPwm3Regs.TZFRC

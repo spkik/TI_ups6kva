@@ -12,13 +12,13 @@
 #define C2P2ZCoeff_V_MIN -0.500000
 
 #define C2P2ZCoeff_I_B2 0.000000
-#define C2P2ZCoeff_I_B1 0.000000
-#define C2P2ZCoeff_I_B0 1.300000
+#define C2P2ZCoeff_I_B1 -2.496000
+#define C2P2ZCoeff_I_B0 2.504000
 #define C2P2ZCoeff_I_A2 0.000000
-#define C2P2ZCoeff_I_A1 0.000000
+#define C2P2ZCoeff_I_A1 1.000000
 
-#define C2P2ZCoeff_I_MAX 0.500000
-#define C2P2ZCoeff_I_MIN -0.500000
+#define C2P2ZCoeff_I_MAX 1.000000
+#define C2P2ZCoeff_I_MIN 0.100000
 
 //////////////////////////////////////////////////PFC////////////////////////////////////////////////////////////////////
 
@@ -97,6 +97,7 @@ extern volatile long *ADCDRV_1ch_Rlt3;	// instance #1, IpfcA
 extern volatile long *ADCDRV_1ch_Rlt4;	// instance #2, Vbus
 extern volatile long *ADCDRV_1ch_Rlt5;	// instance #4, VL_fb
 extern volatile long *ADCDRV_1ch_Rlt6;	// instance #5, VN_fb
+extern volatile long *ADCDRV_1ch_Rlt7;  // instance #5, VN_fb
 
 extern volatile long *PWMDRV_1ch_UpDwnCnt_Duty2;	// instance #2
 extern volatile long PWMDRV_1ch_UpDwnCnt_Period2;
@@ -129,6 +130,10 @@ extern volatile long MATH_EMAVG_Multiplier3;
 extern volatile int32  *MATH_EMAVG_In4;
 extern volatile int32  *MATH_EMAVG_Out4;
 extern volatile long MATH_EMAVG_Multiplier4;
+
+extern volatile int32  *MATH_EMAVG_In5;
+extern volatile int32  *MATH_EMAVG_Out5;
+extern volatile long MATH_EMAVG_Multiplier5;
 
 extern volatile long *PFC_ICMD_Vcmd1;
 extern volatile long *PFC_ICMD_VinvSqr1;

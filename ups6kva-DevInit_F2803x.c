@@ -190,7 +190,7 @@ void DeviceInit(void)
 //--------------------------------------------------------------------------------------
 //  GPIO-06 - PIN FUNCTION = --Spare--			FAN_PWM
 	GpioCtrlRegs.GPAMUX1.bit.GPIO6 = 0;		// 0=GPIO,  1=EPWM4A,  2=SYNCI,  3=SYNCO
-	GpioCtrlRegs.GPADIR.bit.GPIO6 = 0;		// 1=OUTput,  0=INput
+	GpioCtrlRegs.GPADIR.bit.GPIO6 = 1;		// 1=OUTput,  0=INput
 	GpioDataRegs.GPACLEAR.bit.GPIO6 = 1;	// uncomment if --> Set Low initially
 //	GpioDataRegs.GPASET.bit.GPIO6 = 1;		// IND B SET
 //--------------------------------------------------------------------------------------
@@ -203,7 +203,7 @@ void DeviceInit(void)
 //  GPIO-8 - PIN FUNCTION = --Spare--//сигнал на включение выходного реле, высокий - активный
 	GpioCtrlRegs.GPAMUX1.bit.GPIO8 = 0;	    // 0=GPIO,  1=SPISIMO-A,  2=Resv,  3=TZ2
 	GpioCtrlRegs.GPADIR.bit.GPIO8 = 1;		// 1=OUTput,  0=INput
-//	GpioDataRegs.GPACLEAR.bit.GPIO8 = 1;	// uncomment if --> Set Low initially
+	GpioDataRegs.GPACLEAR.bit.GPIO8 = 1;	// uncomment if --> Set Low initially
 //	GpioDataRegs.GPASET.bit.GPIO8 = 1;		// IND A SET
 //--------------------------------------------------------------------------------------
 

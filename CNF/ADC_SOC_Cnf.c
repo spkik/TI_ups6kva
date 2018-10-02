@@ -123,7 +123,7 @@ void ADC_SOC_CNF(int ChSel[], int Trigsel[], int ACQPS[], int IntChSel, int mode
 	AdcRegs.ADCSOC14CTL.bit.TRIGSEL = Trigsel[14];
 	AdcRegs.ADCSOC15CTL.bit.TRIGSEL = Trigsel[15];
 
-	AdcRegs.SOCPRICTL.bit.SOCPRIORITY = 0x7;		// SOC0-SOC6 are high priority, SOC7-SOC15 are in round robin mode
+	AdcRegs.SOCPRICTL.bit.SOCPRIORITY = 0x8;		// SOC0-SOC6 are high priority, SOC7-SOC15 are in round robin mode
 	EDIS;
 
 	AdcRegs.ADCSOCFRC1.all = 0xFFFF; 				// kick-start ADC

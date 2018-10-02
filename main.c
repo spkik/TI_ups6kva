@@ -55,25 +55,31 @@ volatile int32 V_Out = 0;
 
 volatile int32 I_Ref = 0;
 volatile int32 I_Fdb = 0;
+volatile int32 I_Fdb_rect = 0;
 volatile int32 I_Out = 0;
 //////////////////////////////////Internal Variables//////////////////////////////////////
 volatile int32  Zero_Duty = _IQ24(0.5);
 volatile int32  Duty = 0;
 
 //////////////////////////////////AC_DC DP_LIB Variables//////////////////////////////////
-volatile long Ipfc;//K_dcm_corr=0;
-volatile long Vbus;
-volatile long Vbus_H;
-volatile long Vbus_L;
-volatile long VL_fb;
-volatile long VN_fb;
+volatile long Ipfc=0;//K_dcm_corr=0;
+volatile long Vbus=0;
+volatile long Vbus_H=0;
+volatile long Vbus_L=0;
+volatile long VL_fb=0;
+volatile long VN_fb=0;
+volatile long I_SW_O=0;
+volatile long Vref_Iout=0;
 
 volatile long DutyA;
 volatile long Vrect=0, VinvSqr=0, VrectAvg=0, VbusAvg_H=0, VbusAvg_L=0, VbusAvg=0, VrectRMS=0, Freq_Vin=0;
 volatile long IoutAvg=0;
+volatile long IswAvg=0;
+volatile long IinAvg=0;
 volatile long VbusVcmd,PFCIcmd;             //PFCIcmd_avg;
 
 volatile long   KoutTargetSlewed;
+volatile long   SinTableSlewed;
 
 volatile long   VbusTargetSlewed;           // Slewed set point for the voltage loop
 volatile long   VbusSlewRate = 1500;        // Voltage loop Slew rate adjustment (Q24)
@@ -179,6 +185,8 @@ volatile unsigned int Vbusavg_f=0;
 volatile unsigned int Fault=0;
 
 volatile unsigned long Iout_fault = 0;
+volatile unsigned long Isw_fault = 0;
+volatile unsigned long Iin_fault=0;
 void main(void)
 {
 //=================================================================================
@@ -224,7 +232,7 @@ void main(void)
     ChSel[4]=0xA;       //Vbus      Vbus_H
     ChSel[5]=0x1;       //VL_fb     V_IN
     ChSel[6]=0xC;       //VbusL     Vbus_L
-    //ChSel[6]=0x3;       //VN_fb     HALF_REF
+    ChSel[7]=0x2;       //I_SW_O
 
     // Select Trigger Event for ADC conversion
     TrigSel[0]= ADCTRIG_EPWM1_SOCA;
@@ -235,6 +243,7 @@ void main(void)
     TrigSel[4]= ADCTRIG_EPWM1_SOCA;         //1
     TrigSel[5]= ADCTRIG_EPWM1_SOCA;         //1
     TrigSel[6]= ADCTRIG_EPWM1_SOCA;         //1
+    TrigSel[7]= ADCTRIG_EPWM1_SOCA;         //1
     // associate the appropriate peripheral trigger to the ADC channel
 
     // Configure the ADC with auto interrupt clear mode
@@ -362,7 +371,7 @@ void C1(void)  // soft start thyristors
          CNTL_2P2Z_Ref2 = &temp_zero;            // Slewed Voltage Command
         }
 
-    if (VrectRMS >= V_RECT_RMS_THRSHLD)       // 180 Vnet_rms
+    if ((VrectRMS >= V_RECT_RMS_THRSHLD)&&(VbusavgH_f==0)&&(Fault==0))       // 180 Vnet_rms V_RECT_RMS_THRSHLD
     {
         SoftStartThyristors = 1;
 
@@ -545,8 +554,8 @@ void C3(void) //
 */
 
 #ifndef INV
-        static long a= I_OUT_THRSHLD_30;
-        if ((VbusAvg < VBUS_UNDERVP_THRSHLD)||(VbusAvg_H < VBUS_UNDERVP_THRSHLD)||(VbusAvg_H < VBUS_UNDERVP_THRSHLD)||(IoutAvg >= a))  //Check for Vbus UV Condition
+
+        if ((VbusAvg < VBUS_UNDERVP_THRSHLD)||(VbusAvg_H < VBUS_UNDERVP_THRSHLD)||(VbusAvg_H < VBUS_UNDERVP_THRSHLD))  //Check for Vbus UV Condition
         {
             EALLOW;
             EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
@@ -571,9 +580,10 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
     EDIS;
 
+    //V_Ref=_IQ24mpy(SinTableSlewed,I_Out);
 #ifndef FLASH
-    *(V_OUT_INT_array+x_i) = Vbus;
-    *(V_IN_array+x_i) = I_Fdb;
+    *(V_OUT_INT_array+x_i) =  SinTableSlewed;
+    *(V_IN_array+x_i) =  V_Ref;
 //    *(V_Ref_array+x_i) = VbusAvg;
 //    *(V_Ref_array+x_i) = Vrect;
 //    *(V_Fdb_array+x_i) = Vbus;
@@ -633,8 +643,8 @@ interrupt void SECONDARY_ISR(void)
     EPwm5Regs.ETCLR.bit.INT = 1;                        // clear interrupt flag of PWMINT6
     PieCtrlRegs.PIEACK.bit.ACK3 = 1;                    // clear the bit and enables the PIE block interrupts
     EDIS;
-
-    if ((VbusAvg > VBUS_OVP_THRSHLD)||(VbusAvg_H > VBUS_OVP_THRSHLD)||(VbusAvg_H > VBUS_OVP_THRSHLD)||(IoutAvg>=(I_OUT_THRSHLD_30)))//Check for Vbus OV Condition ||(IoutAvg>=(I_OUT_THRSHLD_30)
+     static long a= I_IN_THRSHLD_35;
+    if ((VbusAvg > VBUS_OVP_THRSHLD)||(VbusAvg_H > VBUS_OVP_THRSHLD)||(VbusAvg_H > VBUS_OVP_THRSHLD)||(IoutAvg>=I_OUT_THRSHLD_30)||(IinAvg>=a))//Check for Vbus OV Condition
      {
          OV_flag = 1;
          EALLOW;
@@ -644,6 +654,8 @@ interrupt void SECONDARY_ISR(void)
          EPwm2Regs.TZFRC.bit.OST = 1;//Turn off PWM for OV condition
          EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
          EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+         GpioDataRegs.GPASET.bit.GPIO8 = 1;         //LED2
+         GpioDataRegs.GPASET.bit.GPIO6 = 1;         //LED1
          EDIS;
 
          VbusTargetSlewed = 0;
@@ -682,9 +694,9 @@ void Net_connect()
     CNTL_2P2Z_CoefV =  &Coef2P2Z_V.b2;
 
     //CNTL_2P2Z_RefI = &I_Ref;
-    CNTL_2P2Z_RefI = &V_Out;
+    CNTL_2P2Z_RefI = &Vref_Iout;
     CNTL_2P2Z_OutI = &I_Out;
-    CNTL_2P2Z_FdbkI = &I_Fdb;
+    CNTL_2P2Z_FdbkI = &IoutAvg;
     CNTL_2P2Z_CoefI = &Coef2P2Z_I.b2;
 
     ADCDRV_1ch_Rlt0  =&ADCout_V;
@@ -705,7 +717,7 @@ void Net_connect()
     ADCDRV_1ch_Rlt4 = &Vbus_H;
     ADCDRV_1ch_Rlt5 = &VL_fb;
     ADCDRV_1ch_Rlt6 = &Vbus_L;
-
+    ADCDRV_1ch_Rlt7 = &I_SW_O;
     //connect the 2P2Z connections, for the inner Current Loop, Loop1
     CNTL_2P2Z_Ref1 = &PFCIcmd;
     CNTL_2P2Z_Out1 = &DutyA; //Comment to open the curr loop.Then specify open loop duty to boost  bus volt.
@@ -744,19 +756,24 @@ void Net_connect()
     // Math_avg block connections - Instance 1
     MATH_EMAVG_In1=&Vbus;
     MATH_EMAVG_Out1=&VbusAvg;
-    MATH_EMAVG_Multiplier1=_IQ30(0.000030);
+    MATH_EMAVG_Multiplier1=_IQ30(0.00002454);
 
     MATH_EMAVG_In2=&Vbus_H;
     MATH_EMAVG_Out2=&VbusAvg_H;
-    MATH_EMAVG_Multiplier2=_IQ30(0.000030);
+    MATH_EMAVG_Multiplier2=_IQ30(0.00002454);
 
     MATH_EMAVG_In3=&Vbus_L;
     MATH_EMAVG_Out3=&VbusAvg_L;
-    MATH_EMAVG_Multiplier3=_IQ30(0.000030);
+    MATH_EMAVG_Multiplier3=_IQ30(0.00002454);        //1% pulse
 
-    MATH_EMAVG_In4=&I_Fdb;
+    MATH_EMAVG_In4=&I_Fdb_rect;
     MATH_EMAVG_Out4=&IoutAvg;
-    MATH_EMAVG_Multiplier4=_IQ30(0.000030);
+    MATH_EMAVG_Multiplier4=_IQ30(0.002454);         //10% pulse
+
+    MATH_EMAVG_In5=&Ipfc;
+    MATH_EMAVG_Out5=&IinAvg;
+    MATH_EMAVG_Multiplier5=_IQ30(0.00002454);
+
 
     // Initialize the net variables
     DutyA =_IQ24(0.0);
@@ -779,6 +796,9 @@ void Net_connect()
     run_flag = 0;
     temp_zero = 0;
     Iout_fault= I_OUT_THRSHLD_54;
+    Isw_fault= I_SW_O_THRSHLD_54;
+    Iin_fault= I_IN_THRSHLD_65;
+    Vref_Iout=VREF_Iout;
 }
 
 void Coef_fill()
