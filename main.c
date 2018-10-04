@@ -459,27 +459,7 @@ if (pfc_slew_temp >= VbusSlewRate) // Positive Command. Slewed Vbus is less than
                                     //implement soft-start for Vbus. VbusSlewRate is initialized at the begining of this file.
 {
     VbusTargetSlewed = VbusTargetSlewed + VbusSlewRate;
-    if(CNTL_2P2Z_CoefStruct2.max < _IQ24(0.9))
-    {
-         CNTL_2P2Z_CoefStruct2.max += _IQ24(0.001);
-    } else
-    {
-         CNTL_2P2Z_CoefStruct2.max = _IQ24(0.981);
-                   //PFC_status.bit.Mode=3;
-    }
-
-    if(CNTL_2P2Z_CoefStruct1.max < _IQ24(0.9))
-    {
-         CNTL_2P2Z_CoefStruct1.max += _IQ24(0.001);
-    }
-    else
-    {
-         CNTL_2P2Z_CoefStruct1.max = _IQ24(0.981);
-                   //PFC_status.bit.Mode=3;
-    }
-
     C_Task_Ptr = &C2;
-
 }
 else
 {
@@ -490,17 +470,47 @@ else
         VbusTargetSlewed = VBUS_TARGET;
         //Gui_Vbus_set = VBUS_RATED_VOLTS*64;//Q15, Set Gui Vbus set point to initial value VBUS_RATED_VOLTS
         //start_flag = 0;
+
+//  }
+}
+
+
+if ((CNTL_2P2Z_CoefStruct2.max  < _IQ24(0.96))||(CNTL_2P2Z_CoefStruct1.max <  _IQ24(0.96)))
+{
+    if(CNTL_2P2Z_CoefStruct2.max < _IQ24(0.95))
+   {
+        CNTL_2P2Z_CoefStruct2.max += _IQ24(0.001);
+   } else
+   {
+        CNTL_2P2Z_CoefStruct2.max = _IQ24(0.95);
+                  //PFC_status.bit.Mode=3;
+   }
+
+   if(CNTL_2P2Z_CoefStruct1.max < _IQ24(0.95))
+   {
+        CNTL_2P2Z_CoefStruct1.max += _IQ24(0.001);
+   }
+   else
+   {
+        CNTL_2P2Z_CoefStruct1.max = _IQ24(0.95);
+                  //PFC_status.bit.Mode=3;
+   }
+   C_Task_Ptr = &C2;
+
+}
+
+if ((CNTL_2P2Z_CoefStruct1.max  == _IQ24(0.95))&&(CNTL_2P2Z_CoefStruct2.max ==  _IQ24(0.95))&&(( VbusTargetSlewed == VBUS_TARGET)))
+{
 #ifndef PFC_debug
          run_flag = 1;
 #endif
         C_Task_Ptr = &C3;
-//  }
-}
 
     //-----------------
     //the next time CpuTimer2 'counter' reaches Period value go to C3
     //C_Task_Ptr = &C1;
     //-----------------
+}
 }
 
 
@@ -560,6 +570,7 @@ void C3(void) //
             EALLOW;
             EPwm3Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
             EPwm6Regs.TZFRC.bit.OST = 1;//Turn off PWM for UV condition
+            GpioDataRegs.GPASET.bit.GPIO6 = 1;         //LED1
             EDIS;
             VbusavgL_f=1;
         }
@@ -582,8 +593,8 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
 
     //V_Ref=_IQ24mpy(SinTableSlewed,I_Out);
 #ifndef FLASH
-    *(V_OUT_INT_array+x_i) =  SinTableSlewed;
-    *(V_IN_array+x_i) =  V_Ref;
+    *(V_OUT_INT_array+x_i) =  V_Out;
+    *(V_IN_array+x_i) =  Duty;
 //    *(V_Ref_array+x_i) = VbusAvg;
 //    *(V_Ref_array+x_i) = Vrect;
 //    *(V_Fdb_array+x_i) = Vbus;
@@ -789,7 +800,7 @@ void Net_connect()
 
     VbusVcmd = _IQ24(0.5);          //Variable initialized for open Volt loop $ closed current loop test with light load
 
-    KoutTargetSlewed = _IQ24(0.0);
+    KoutTargetSlewed = _IQ24(0.001);
     VbusTargetSlewed = _IQ24(0.0);
     pfc_slew_temp = 0;
     start_flag = 0;

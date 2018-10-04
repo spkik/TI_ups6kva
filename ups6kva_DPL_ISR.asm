@@ -209,16 +209,16 @@ _DPL_ISR:
 			QMPYL	ACC, XT, *XAR4			; Q24* Q24 = I16Q48
 			LSL		ACC,#8					; ACC = I8Q24
 
-			MOVW	DP, #_SinTableSlewed
-			MOVL 	@_SinTableSlewed, ACC
-			MOVL 	XAR4, ACC
+			;MOVW	DP, #_SinTableSlewed
+			;MOVL 	@_SinTableSlewed, ACC
+			;MOVL 	XAR4, ACC
 
-			MOVW	DP,#_I_Out
-			MOVL	XT,@_I_Out
-			MOVW	DP,#_SinTableSlewed
-			IMPYL	P, XT, @_SinTableSlewed
-			QMPYL	ACC, XT, @_SinTableSlewed			; Q24* Q24 = I16Q48
-			LSL		ACC,#8								; ACC = I8Q24
+			;MOVW	DP,#_I_Out
+			;MOVL	XT,@_I_Out
+			;MOVW	DP,#_SinTableSlewed
+			;IMPYL	P, XT, @_SinTableSlewed
+			;QMPYL	ACC, XT, @_SinTableSlewed			; Q24* Q24 = I16Q48
+			;LSL		ACC,#8								; ACC = I8Q24
 
 			MOVW	DP,#_V_Ref
 			MOVL 	@_V_Ref, ACC				;ACC
