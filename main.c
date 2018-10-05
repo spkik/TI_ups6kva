@@ -475,9 +475,9 @@ else
 }
 
 
-if ((CNTL_2P2Z_CoefStruct2.max  < _IQ24(0.96))||(CNTL_2P2Z_CoefStruct1.max <  _IQ24(0.96)))
+if ((CNTL_2P2Z_CoefStruct2.max  < _IQ24(0.95))||(CNTL_2P2Z_CoefStruct1.max <  _IQ24(0.95)))
 {
-    if(CNTL_2P2Z_CoefStruct2.max < _IQ24(0.95))
+    if(CNTL_2P2Z_CoefStruct2.max < _IQ24(0.93))
    {
         CNTL_2P2Z_CoefStruct2.max += _IQ24(0.001);
    } else
@@ -486,7 +486,7 @@ if ((CNTL_2P2Z_CoefStruct2.max  < _IQ24(0.96))||(CNTL_2P2Z_CoefStruct1.max <  _I
                   //PFC_status.bit.Mode=3;
    }
 
-   if(CNTL_2P2Z_CoefStruct1.max < _IQ24(0.95))
+   if(CNTL_2P2Z_CoefStruct1.max < _IQ24(0.93))
    {
         CNTL_2P2Z_CoefStruct1.max += _IQ24(0.001);
    }
@@ -547,21 +547,21 @@ void C3(void) //
         else
             {KoutTargetSlewed = _IQ24(1.0);}
 
-        Coef2P2Z_V.max = _IQ24(C2P2ZCoeff_V_MAX);
-        Coef2P2Z_V.min = _IQ24(C2P2ZCoeff_V_MIN);
-/*
+//        Coef2P2Z_V.max = _IQ24(C2P2ZCoeff_V_MAX);
+//        Coef2P2Z_V.min = _IQ24(C2P2ZCoeff_V_MIN);
+
         // если PFC вышел на режим и VBUS достигло 400 В, плавно поднимаем насыщение  V регулятора инвертора
 
         if(Coef2P2Z_V.max < _IQ24(C2P2ZCoeff_V_MAX))
-            Coef2P2Z_V.max += _IQ24(0.0005);
+            Coef2P2Z_V.max += _IQ24(0.0002);
         else
             Coef2P2Z_V.max = _IQ24(C2P2ZCoeff_V_MAX);
 
         if(Coef2P2Z_V.min > _IQ24(C2P2ZCoeff_V_MIN))
-             Coef2P2Z_V.min -= _IQ24(0.0005);
+             Coef2P2Z_V.min -= _IQ24(0.0002);
         else
              Coef2P2Z_V.min = _IQ24(C2P2ZCoeff_V_MIN);
-*/
+
 
 #ifndef INV
 
@@ -593,8 +593,8 @@ interrupt void int_EPWM6(void)  //SOC0_SOC1 EPWM3SOCB trigger pulse окончание из
 
     //V_Ref=_IQ24mpy(SinTableSlewed,I_Out);
 #ifndef FLASH
-    *(V_OUT_INT_array+x_i) =  V_Out;
-    *(V_IN_array+x_i) =  Duty;
+    *(V_OUT_INT_array+x_i) =  ADCout_V;
+//    *(V_IN_array+x_i) =  Duty;
 //    *(V_Ref_array+x_i) = VbusAvg;
 //    *(V_Ref_array+x_i) = Vrect;
 //    *(V_Fdb_array+x_i) = Vbus;

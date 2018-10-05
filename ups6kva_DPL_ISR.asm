@@ -241,16 +241,16 @@ COMPV:
 			ABS		ACC
 			MOVW	DP,#_I_Fdb_rect
 			MOVL	@_I_Fdb_rect, ACC
-			MOVW	DP,#_Iout_fault
-			CMPL	ACC,@_Iout_fault
-			B		Fault,GEQ
+			;MOVW	DP,#_Iout_fault			;current protection
+			;CMPL	ACC,@_Iout_fault
+			;B		Fault,GEQ
 
 			ADCDRV_1ch 7
-			MOVW	DP,#_I_SW_O
-			MOVL	ACC,@_I_SW_O
-			MOVW	DP,#_Isw_fault
-			CMPL	ACC,@_Isw_fault
-			B		Fault,GEQ
+			;MOVW	DP,#_I_SW_O				;current protection
+			;MOVL	ACC,@_I_SW_O
+			;MOVW	DP,#_Isw_fault
+			;CMPL	ACC,@_Isw_fault
+			;B		Fault,GEQ
 
 			CNTL_2P2Z I
 
@@ -273,11 +273,11 @@ COMPV:
 			ADCDRV_1ch 		5			; VL_fb load adc result
 			ADCDRV_1ch 		6			; Vbus_L load adc result
 
-			MOVW	DP,#_Ipfc
-			MOVL	ACC,@_Ipfc
-			MOVW	DP,#_Iin_fault
-			CMPL	ACC,@_Iin_fault
-			B		Fault,GEQ
+			;MOVW	DP,#_Ipfc
+			;MOVL	ACC,@_Ipfc			; current protection
+			;MOVW	DP,#_Iin_fault
+			;CMPL	ACC,@_Iin_fault
+			;B		Fault,GEQ
 
 
 			MOVW 	DP, #_AdcResult		; load Data Page to read ADC results
@@ -469,26 +469,26 @@ NegativeCycle_INV:
 ;			MOV		@_EPwm2Regs.AQCTLA.bit.CAU, #2		; SET ePWM1 on CompA-Up (force high)
 ;			MOV		@_EPwm2Regs.AQCTLA.bit.CAD, #2		; SET ePWM1 on CompA-Down
 ;			MOV		@_EPwm2Regs.AQCTLA, #160			; SET ePWM1 on CompA-Up/Down (force high)
-Fault:
-			MOVW 	DP, #_GpioDataRegs.GPBCLEAR
-			MOV		@_GpioDataRegs.GPBCLEAR.bit.GPIO32,#1			;close the upper thyristor
-         	MOV		@_GpioDataRegs.GPACLEAR.bit.GPIO12,#1			;close the lower thyristor
+;Fault:
+		;	MOVW 	DP, #_GpioDataRegs.GPBCLEAR
+			;MOV		@_GpioDataRegs.GPBCLEAR.bit.GPIO32,#1			;close the upper thyristor
+         ;	MOV		@_GpioDataRegs.GPACLEAR.bit.GPIO12,#1			;close the lower thyristor
 
-         	MOVW 	DP, #_GpioDataRegs.GPADAT
-         	OR      @_GpioDataRegs.GPASET.all,#8         		;LED2
-         	OR		@_GpioDataRegs.GPASET.all,#6         		;LED1
-			EALLOW
-         	MOVW 	DP, #_EPwm1Regs.TZFRC
-         	OR		@_EPwm1Regs.TZFRC.all,#4
-         	MOVW 	DP, #_EPwm2Regs.TZFRC
-         	OR		@_EPwm2Regs.TZFRC.all,#4					;Turn off PWM for OV condition
-         	MOVW 	DP, #_EPwm3Regs.TZFRC
-         	OR		@_EPwm3Regs.TZFRC.all,#4					;Turn off PWM for UV condition
-         	MOVW 	DP, #_EPwm6Regs.TZFRC
-         	OR		@_EPwm6Regs.TZFRC.all,#4					;Turn off PWM for UV condition
-         	EDIS
-			MOVW	DP, #_Fault
-			MOV		@_Fault,#1
+         ;	MOVW 	DP, #_GpioDataRegs.GPADAT
+         ;	OR      @_GpioDataRegs.GPASET.all,#8         		;LED2
+         ;	OR		@_GpioDataRegs.GPASET.all,#6         		;LED1
+			;EALLOW
+         ;	MOVW 	DP, #_EPwm1Regs.TZFRC
+         ;	OR		@_EPwm1Regs.TZFRC.all,#4
+         ;	MOVW 	DP, #_EPwm2Regs.TZFRC
+         ;	OR		@_EPwm2Regs.TZFRC.all,#4					;Turn off PWM for OV condition
+         ;	MOVW 	DP, #_EPwm3Regs.TZFRC
+         ;	OR		@_EPwm3Regs.TZFRC.all,#4					;Turn off PWM for UV condition
+         ;	MOVW 	DP, #_EPwm6Regs.TZFRC
+         ;	OR		@_EPwm6Regs.TZFRC.all,#4					;Turn off PWM for UV condition
+         ;	EDIS
+		;	MOVW	DP, #_Fault
+		;	MOV		@_Fault,#1
 SkipPWM2Force:
 ;	        MOVW 	DP, #_GpioDataRegs.GPADAT            ; load Data Page to read GPIO registers
 ;			MOV	@_GpioDataRegs.GPACLEAR, #128 			; Clear GPIO7, Used for debug purposes
