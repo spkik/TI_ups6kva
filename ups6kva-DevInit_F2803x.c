@@ -504,36 +504,41 @@ void ePWM_prefare()
 	EPwm5Regs.ETPS.bit.INTPRD = ET_1ST;        		// Generate pulse on 1st event
 
 	/////////////////////trip zone settings for cycle by cycle event//////////////////////////////////////////////
-	EPwm3Regs.TZSEL.bit.DCAEVT1 = TZ_ENABLE;      // Enable DCAEVT2 as CBC trip source for ePWM2 module.
-	EPwm3Regs.DCTRIPSEL.bit.DCAHCOMPSEL = DC_COMP1OUT;        // COMP1OUT is input of Event Qualification A
-	EPwm3Regs.TZDCSEL.bit.DCAEVT1 = TZ_DCAH_HI;     // DCAEVT2 = DCAH high(will become active)
+//	EPwm3Regs.TZSEL.bit.DCAEVT1 = TZ_ENABLE;      // Enable DCAEVT2 as CBC trip source for ePWM2 module.
+//	EPwm3Regs.DCTRIPSEL.bit.DCAHCOMPSEL = DC_COMP1OUT;        // COMP1OUT is input of Event Qualification A
+//	EPwm3Regs.TZDCSEL.bit.DCAEVT1 = TZ_DCAH_HI;     // DCAEVT2 = DCAH high(will become active)
 
-	EPwm3Regs.DCFCTL.bit.PULSESEL = DC_PULSESEL_ZERO;// Time-base counter equal to zero (TBCTR = 0x0000) - start blank timer
-	EPwm3Regs.DCFCTL.bit.BLANKINV = DC_BLANK_NOTINV;// Blanking window is not inverted
-	EPwm3Regs.DCFCTL.bit.BLANKE = DC_BLANK_ENABLE;    // Blanking window is enabled
-	EPwm3Regs.DCFCTL.bit.SRCSEL   = DC_SRC_DCAEVT1;   // Source Is DCAEVT2 Signal
-	EPwm3Regs.DCFOFFSET = 0;                      // no offset
-	EPwm3Regs.DCFWINDOW = 60;                     // Blanking window is  0.5 us
-	EPwm3Regs.DCACTL.bit.EVT1SRCSEL = DC_EVT_FLT; // Source Is DCEVTFILT Signal
+//	EPwm3Regs.DCFCTL.bit.PULSESEL = DC_PULSESEL_ZERO;// Time-base counter equal to zero (TBCTR = 0x0000) - start blank timer
+//	EPwm3Regs.DCFCTL.bit.BLANKINV = DC_BLANK_NOTINV;// Blanking window is not inverted
+//	EPwm3Regs.DCFCTL.bit.BLANKE = DC_BLANK_ENABLE;    // Blanking window is enabled
+//	EPwm3Regs.DCFCTL.bit.SRCSEL   = DC_SRC_DCAEVT1;   // Source Is DCAEVT2 Signal
+//	EPwm3Regs.DCFOFFSET = 0;                      // no offset
+//	EPwm3Regs.DCFWINDOW = 60;                     // Blanking window is  0.5 us
+//	EPwm3Regs.DCACTL.bit.EVT1SRCSEL = DC_EVT_FLT; // Source Is DCEVTFILT Signal
 	//EPwm3Regs.DCACTL.bit.EVT2SRCSEL = DC_EVT2;        // Filter is not used
-	EPwm3Regs.DCACTL.bit.EVT1FRCSYNCSEL = DC_EVT_ASYNC; // Take async path
+//	EPwm3Regs.DCACTL.bit.EVT1FRCSYNCSEL = DC_EVT_ASYNC; // Take async path
 	//EPwm3Regs.TZEINT.bit.CBC = 1;                 // enable interrupt for CBC 01.11.12
 
-	EPwm6Regs.TZSEL.bit.DCAEVT1 = TZ_ENABLE;      // Enable DCAEVT2 as CBC trip source for ePWM3 module.
-	EPwm6Regs.DCTRIPSEL.bit.DCAHCOMPSEL = DC_COMP1OUT;      // COMP2OUT is input of Event Qualification A
-	EPwm6Regs.TZDCSEL.bit.DCAEVT1 = TZ_DCAH_HI;     // DCAEVT2 = DCAH high(will become active)
+//	EPwm6Regs.TZSEL.bit.DCAEVT1 = TZ_ENABLE;      // Enable DCAEVT2 as CBC trip source for ePWM3 module.
+//	EPwm6Regs.DCTRIPSEL.bit.DCAHCOMPSEL = DC_COMP1OUT;      // COMP2OUT is input of Event Qualification A
+//	EPwm6Regs.TZDCSEL.bit.DCAEVT1 = TZ_DCAH_HI;     // DCAEVT2 = DCAH high(will become active)
 
-	EPwm6Regs.DCFCTL.bit.PULSESEL = DC_PULSESEL_ZERO;// Time-base counter equal to zero (TBCTR = 0x0000) - start blank timer
-	EPwm6Regs.DCFCTL.bit.BLANKINV = DC_BLANK_NOTINV; // Blanking window is not inverted
-	EPwm6Regs.DCFCTL.bit.BLANKE = DC_BLANK_ENABLE;   // Blanking window is enabled
-	EPwm6Regs.DCFCTL.bit.SRCSEL   = DC_SRC_DCAEVT1;   // Source Is DCAEVT2 Signal
-	EPwm6Regs.DCFOFFSET = 0;                      // no offset
-	EPwm6Regs.DCFWINDOW = 60;                     // Blanking window is  0.5 us
-	EPwm6Regs.DCACTL.bit.EVT1SRCSEL = DC_EVT_FLT;;    // Source Is DCEVTFILT Signal
+//	EPwm6Regs.DCFCTL.bit.PULSESEL = DC_PULSESEL_ZERO;// Time-base counter equal to zero (TBCTR = 0x0000) - start blank timer
+//	EPwm6Regs.DCFCTL.bit.BLANKINV = DC_BLANK_NOTINV; // Blanking window is not inverted
+//	EPwm6Regs.DCFCTL.bit.BLANKE = DC_BLANK_ENABLE;   // Blanking window is enabled
+//	EPwm6Regs.DCFCTL.bit.SRCSEL   = DC_SRC_DCAEVT1;   // Source Is DCAEVT2 Signal
+//	EPwm6Regs.DCFOFFSET = 0;                      // no offset
+//	EPwm6Regs.DCFWINDOW = 60;                     // Blanking window is  0.5 us
+//	EPwm6Regs.DCACTL.bit.EVT1SRCSEL = DC_EVT_FLT;;    // Source Is DCEVTFILT Signal
 	//EPwm6Regs.DCACTL.bit.EVT2SRCSEL = DC_EVT2;        // Filter is not used
-	EPwm6Regs.DCACTL.bit.EVT1FRCSYNCSEL = DC_EVT_ASYNC; // Take async path
+//	EPwm6Regs.DCACTL.bit.EVT1FRCSYNCSEL = DC_EVT_ASYNC; // Take async path
 	//EPwm6Regs.TZEINT.bit.CBC = 1;                 // enable interrupt for CBC 01.11.12
 
+    EPwm3Regs.TZSEL.bit.OSHT6 = 1;                  // Enable TZ6 as a one-shot trip source for  ePWM2  module
+    EPwm3Regs.TZCTL.bit.TZA = TZ_FORCE_LO;          // Force EPWM1A to a low state
+
+    EPwm6Regs.TZSEL.bit.OSHT6 = 1;                  // Enable TZ6 as a one-shot trip source for  ePWM2  module
+    EPwm6Regs.TZCTL.bit.TZA = TZ_FORCE_LO;          // Force EPWM1A to a low state
 
 	EPwm2Regs.TZSEL.bit.OSHT6 = 1;      			// Enable TZ6 as a one-shot trip source for  ePWM2  module
 	EPwm2Regs.TZCTL.bit.TZA = TZ_FORCE_LO;			// Force EPWM2A to a low state
@@ -646,13 +651,13 @@ EALLOW;
 //Comp1Regs.COMPCTL.bit.QUALSEL = 4;  			// Input to the block must be consistent for 5 consecutive
 //Comp1Regs.COMPCTL.bit.CMPINV = 0;
 
-Comp1Regs.COMPCTL.bit.COMPDACEN = 1;			// Comparator_DAC logic is powered up
-Comp1Regs.COMPCTL.bit.SYNCSEL = 0;  			// Synchronous version of comparator output is passed
-Comp1Regs.COMPCTL.bit.QUALSEL = 4;  			// Input to the block must be consistent for 5 consecutive
-Comp1Regs.COMPCTL.bit.CMPINV = 0;				// срабатывание по отрицательной полуволне 25.04.15
+//Comp1Regs.COMPCTL.bit.COMPDACEN = 1;			// Comparator_DAC logic is powered up
+//Comp1Regs.COMPCTL.bit.SYNCSEL = 0;  			// Synchronous version of comparator output is passed
+//Comp1Regs.COMPCTL.bit.QUALSEL = 4;  			// Input to the block must be consistent for 5 consecutive
+//Comp1Regs.COMPCTL.bit.CMPINV = 0;				// срабатывание по отрицательной полуволне 25.04.15
 
 
-Comp1Regs.DACVAL.all = COMP1_REF_TRG;			// ограничение положительной полуволны
+//Comp1Regs.DACVAL.all = COMP1_REF_TRG;			// ограничение положительной полуволны
 //Comp3Regs.DACVAL.all = COMP3_REF_TRG;			// ограничение положительной полуволны
 
 //AdcRegs.SOCPRICTL.bit.SOCPRIORITY = 0x3;		// SOC0-SOC2 are high priority, SOC3-SOC15 are in round robin mode

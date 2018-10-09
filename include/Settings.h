@@ -127,18 +127,18 @@
                                                                                     //выраженный в формате IQ23
 
 //#define CURR_GAIN       (float64)(0.01L*8.0L*12.1L/10.05L)
-#define CURR_GAIN       (float64)((1.0L/2500L)*(59.0L/2.0L)*(25.5L/10.0L)*0.5L)
-#define COMP1_POS_V     (float64)(ADC_REF/2.0L + CURR_LIM_1*CURR_GAIN)
+//#define CURR_GAIN       (float64)((1.0L/2500L)*(59.0L/2.0L)*(25.5L/10.0L)*0.5L)
+//#define COMP1_POS_V     (float64)(ADC_REF/2.0L + CURR_LIM_1*CURR_GAIN)
 //#define COMP3_NEG_V     (float64)(ADC_REF/2.0L - CURR_LIM_1*CURR_GAIN)
-#define COMP3_NEG_V     (float64)(ADC_REF/2.0L + CURR_LIM_1*CURR_GAIN)
+//#define COMP3_NEG_V     (float64)(ADC_REF/2.0L + CURR_LIM_1*CURR_GAIN)
 
-#define COMP1_REF_TRG   (Uint16)(COMP1_POS_V/DAC_REF*1023.0L)
-#define COMP3_REF_TRG   (Uint16)(COMP3_NEG_V/DAC_REF*1023.0L)
+//#define COMP1_REF_TRG   (Uint16)(COMP1_POS_V/DAC_REF*1023.0L)
+//#define COMP3_REF_TRG   (Uint16)(COMP3_NEG_V/DAC_REF*1023.0L)
 // Pulse-by-pulse Current Limit
-#define CURR_LIM    60.0L
-#define DELT_LIM    6.0L
+//#define CURR_LIM    60.0L
+//#define DELT_LIM    6.0L
 //#define CURR_LIM_0  (float64)(CURR_LIM - DELT_LIM)
-#define CURR_LIM_1  (float64)(CURR_LIM + DELT_LIM)
+//#define CURR_LIM_1  (float64)(CURR_LIM + DELT_LIM)
 
 
 

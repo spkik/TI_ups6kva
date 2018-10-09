@@ -542,23 +542,23 @@ void C3(void) //
         }
 
 #endif
-        if(KoutTargetSlewed <_IQ24(1.0))
-            {KoutTargetSlewed += _IQ24(0.001);}
-        else
-            {KoutTargetSlewed = _IQ24(1.0);}
-
+//        if(KoutTargetSlewed <_IQ24(1.0))
+//            {KoutTargetSlewed += _IQ24(0.001);}
+//        else{
+            KoutTargetSlewed = _IQ24(1.0);
+    //         }
 //        Coef2P2Z_V.max = _IQ24(C2P2ZCoeff_V_MAX);
 //        Coef2P2Z_V.min = _IQ24(C2P2ZCoeff_V_MIN);
 
         // если PFC вышел на режим и VBUS достигло 400 В, плавно поднимаем насыщение  V регулятора инвертора
 
         if(Coef2P2Z_V.max < _IQ24(C2P2ZCoeff_V_MAX))
-            Coef2P2Z_V.max += _IQ24(0.0002);
+            Coef2P2Z_V.max += _IQ24(0.0005);
         else
             Coef2P2Z_V.max = _IQ24(C2P2ZCoeff_V_MAX);
 
         if(Coef2P2Z_V.min > _IQ24(C2P2ZCoeff_V_MIN))
-             Coef2P2Z_V.min -= _IQ24(0.0002);
+             Coef2P2Z_V.min -= _IQ24(0.0005);
         else
              Coef2P2Z_V.min = _IQ24(C2P2ZCoeff_V_MIN);
 
